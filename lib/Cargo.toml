@@ -75,6 +75,7 @@ actix-files = { version = "0.6", optional = true }
 arbitrary = { version = "1", optional = true, features = ["derive"] }
 arc-swap = "1.6.0"
 puffin = { path = "../../../puffin", version = "0.1.0"}
+extractable-macro = { path = "../../../extractable-macro", version = "0.0.1"}
 
 [dev-dependencies]
 tempdir = "0.3"

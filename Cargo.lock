@@ -931,6 +931,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "extractable-macro"
+version = "0.0.1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
+
+[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1811,6 +1820,7 @@ dependencies = [
  "chrono",
  "derivative",
  "env_logger",
+ "extractable-macro",
  "foreign-types",
  "futures",
  "gethostname",
