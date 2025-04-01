@@ -852,7 +852,8 @@ impl BinaryEncoder<ApplicationType> for ApplicationType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub enum MessageSecurityMode {
     Invalid = 0,
     None = 1,

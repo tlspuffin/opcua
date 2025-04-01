@@ -16,13 +16,18 @@ use std::io::{Read, Write};
 
 // Idea for the long-term: TODO1: CodecP, TODO2: Extractable, TODO3: Constructor
 // #[derive(Debug, Clone, PartialEq, CodecP, Extractable, Constructor)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct OpenSecureChannelRequest {
+    #[extractable_ignore]
     pub request_header: RequestHeader,
+    #[extractable_ignore]
     pub client_protocol_version: u32,
+    #[extractable_ignore]
     pub request_type: SecurityTokenRequestType,
     pub security_mode: MessageSecurityMode,
     pub client_nonce: ByteString,
+    #[extractable_ignore]
     pub requested_lifetime: u32,
 }
 
@@ -74,20 +79,3 @@ impl BinaryEncoder<OpenSecureChannelRequest> for OpenSecureChannelRequest {
         })
     }
 }
-
-// TODO1: make this CodecP implementation a derive macro CodecP to automate the process of writing this for all struct and enum of our choice
-impl puffin::codec::CodecP for OpenSecureChannelRequest {
-        fn encode(&self, bytes: &mut Vec<u8>){
-            BinaryEncoder::encode(self, bytes);
-        }
-        fn read(&mut self, r: &mut puffin::codec::Reader) -> Result<(), puffin::error::Error> {
-            Ok(<OpenSecureChannelRequest as BinaryEncoder<OpenSecureChannelRequest>>::decode(r, &DecodingOptions::default())
-                .map_err(|e| puffin::error::Error::Codec(
-                    format!("CodecP error in opcua-mapper: {e}")))
-                .map(|o| {
-                    *self = o;
-                })?)
-        }
-}
-// TODO2: Also use Extractable macro instead of manually implementing it in opcuapuffin
-// TODO3: Add a new macro Constructor to automate the definition of construction function symbol, e.g., fn_OpenSecureChannelRequest

@@ -4,6 +4,11 @@
 
 //! Contains the implementation of `ByteString`.
 
+use puffin::error::Error;
+use puffin::trace::Source;
+use puffin::protocol::ProtocolTypes;
+use puffin::trace::Knowledge;
+use puffin::protocol::Extractable;
 use std::{
     convert::TryFrom,
     fmt,
@@ -11,8 +16,9 @@ use std::{
 };
 
 use base64::{engine::general_purpose::STANDARD, Engine};
+use puffin::dummy_extract_knowledge;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-
+use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     encoding::{
         process_decode_io_result, process_encode_io_result, write_i32, BinaryEncoder,
@@ -23,10 +29,13 @@ use crate::types::{
 };
 
 /// A sequence of octets.
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct ByteString {
     pub value: Option<Vec<u8>>,
 }
+
+dummy_extract_knowledge!(OpcuaProtocolTypes, u8);
 
 impl AsRef<[u8]> for ByteString {
     fn as_ref(&self) -> &[u8] {
