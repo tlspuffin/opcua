@@ -14,6 +14,8 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
+// Idea for the long-term: TODO1: CodecP, TODO2: Extractable, TODO3: Constructor
+// #[derive(Debug, Clone, PartialEq, CodecP, Extractable, Constructor)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct OpenSecureChannelRequest {
     pub request_header: RequestHeader,
@@ -72,3 +74,20 @@ impl BinaryEncoder<OpenSecureChannelRequest> for OpenSecureChannelRequest {
         })
     }
 }
+
+// TODO1: make this CodecP implementation a derive macro CodecP to automate the process of writing this for all struct and enum of our choice
+impl puffin::codec::CodecP for OpenSecureChannelRequest {
+        fn encode(&self, bytes: &mut Vec<u8>){
+            BinaryEncoder::encode(self, bytes);
+        }
+        fn read(&mut self, r: &mut puffin::codec::Reader) -> Result<(), puffin::error::Error> {
+            Ok(<OpenSecureChannelRequest as BinaryEncoder<OpenSecureChannelRequest>>::decode(r, &DecodingOptions::default())
+                .map_err(|e| puffin::error::Error::Codec(
+                    format!("CodecP error in opcua-mapper: {e}")))
+                .map(|o| {
+                    *self = o;
+                })?)
+        }
+}
+// TODO2: Also use Extractable macro instead of manually implementing it in opcuapuffin
+// TODO3: Add a new macro Constructor to automate the definition of construction function symbol, e.g., fn_OpenSecureChannelRequest
