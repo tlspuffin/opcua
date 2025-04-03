@@ -1,4 +1,4 @@
-// The OPC UA protocol
+// The OPC UA protocol types, adapted to puffin.
 
 use core::any::TypeId;
 use std::fmt;

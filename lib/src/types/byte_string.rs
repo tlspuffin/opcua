@@ -4,20 +4,21 @@
 
 //! Contains the implementation of `ByteString`.
 
+use base64::{engine::general_purpose::STANDARD, Engine};
+use extractable_macro::Extractable;
+use puffin::dummy_extract_knowledge;
 use puffin::error::Error;
 use puffin::trace::Source;
 use puffin::protocol::ProtocolTypes;
 use puffin::trace::Knowledge;
 use puffin::protocol::Extractable;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     convert::TryFrom,
     fmt,
     io::{Read, Write},
 };
 
-use base64::{engine::general_purpose::STANDARD, Engine};
-use puffin::dummy_extract_knowledge;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     encoding::{
@@ -29,8 +30,8 @@ use crate::types::{
 };
 
 /// A sequence of octets.
-#[derive(Eq, PartialEq, Debug, Clone, Hash, extractable_macro::Extractable)]
-#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct ByteString {
     pub value: Option<Vec<u8>>,
 }

@@ -11,6 +11,7 @@ use puffin::{
 };
 use crate::prelude::ByteString;
 use crate::puffin::types::OpcuaProtocolTypes;
+use crate::types::basic_types::*;
 use crate::types::{MessageSecurityMode, OpenSecureChannelRequest, SecurityTokenRequestType};
 
 crate::impl_codec_p!(OpenSecureChannelRequest, MessageSecurityMode, ByteString);
@@ -77,12 +78,12 @@ pub fn fn_message_chunk() -> Result<MessageChunk, FnError> {
 define_signature! {
     OPCUA_SIGNATURE<OpcuaProtocolTypes>,
     // constants
-    //fn_true
-    //fn_false
+    fn_true
+    fn_false
     fn_none
     fn_sign
     fn_encrypt
-    //fn_seq_0
+    fn_seq_0
     fn_open_channel_request
     fn_message_chunk
 }
