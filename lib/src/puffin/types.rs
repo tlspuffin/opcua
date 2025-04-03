@@ -28,8 +28,9 @@ use crate::puffin::signature::OPCUA_SIGNATURE;
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum AgentType {
-    Server,
     Client,
+    Server,
+    User,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]

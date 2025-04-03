@@ -29,7 +29,10 @@ From types::service_types::open_secure_channel_request:
 */
 
 // Since we have not done TODO3, yet, here is a manual constructor function:
-pub fn fn_OpenSecureChannelRequest(security_mode: &MessageSecurityMode, client_nonce: &ByteString) -> Result<OpenSecureChannelRequest, FnError> {
+pub fn fn_open_channel_request(
+    security_mode: &MessageSecurityMode,
+    client_nonce: &ByteString
+) -> Result<OpenSecureChannelRequest, FnError> {
     Ok(OpenSecureChannelRequest {
         request_header: Default::default(),
         client_protocol_version: 0,
@@ -37,6 +40,33 @@ pub fn fn_OpenSecureChannelRequest(security_mode: &MessageSecurityMode, client_n
         security_mode: security_mode.clone(),
         client_nonce: client_nonce.clone(),
         requested_lifetime: 0,
+    })
+}
+use crate::puffin::fn_constants::*;
+
+/* -----------------------------------------------------------------------------
+              TO REMOVE LATER
+----------------------------------------------------------------------------- */
+
+#[derive(Clone, Debug, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
+pub struct MessageChunk {
+    // msg_header: MessageHeader,
+    //sec_header: SecurityHeader,
+    payload: Vec<u8>,
+}
+
+dummy_codec!(OpcuaProtocolTypes, MessageChunk);
+
+pub fn fn_message_chunk() -> Result<MessageChunk, FnError> {
+    Ok(MessageChunk {
+        // msg_header: MessageHeader {
+        //     msg_type: *(b"OPN"),
+        //     // is_final: b'F',
+        //     // msg_size: 0x15,
+        //     sc_id: fn_new_channel_id().unwrap(),
+        // },
+        payload: vec![0x01, 0x02, 0x03, 0x04],
     })
 }
 
@@ -47,9 +77,12 @@ pub fn fn_OpenSecureChannelRequest(security_mode: &MessageSecurityMode, client_n
 define_signature! {
     OPCUA_SIGNATURE<OpcuaProtocolTypes>,
     // constants
-    // fn_true
-    // fn_false
-    // fn_seq_0
-    //fn_open_channel_request
-    fn_OpenSecureChannelRequest
+    //fn_true
+    //fn_false
+    fn_none
+    fn_sign
+    fn_encrypt
+    //fn_seq_0
+    fn_open_channel_request
+    fn_message_chunk
 }

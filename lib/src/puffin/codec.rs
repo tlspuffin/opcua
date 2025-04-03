@@ -3,7 +3,7 @@ macro_rules! impl_codec_p {
     ($($t:ty),*) => {
         $(impl puffin::codec::CodecP for $t {
         fn encode(&self, bytes: &mut Vec<u8>){
-            BinaryEncoder::encode(self, bytes);
+            let _ = BinaryEncoder::encode(self, bytes);
         }
         fn read(&mut self, r: &mut puffin::codec::Reader) -> Result<(), puffin::error::Error> {
             Ok(<$t as BinaryEncoder<$t>>::decode(r, &DecodingOptions::default())
