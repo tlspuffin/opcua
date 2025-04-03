@@ -78,7 +78,7 @@ impl BinaryEncoder<OpenSecureChannelRequest> for OpenSecureChannelRequest {
 // TODO1: make this CodecP implementation a derive macro CodecP to automate the process of writing this for all struct and enum of our choice
 impl puffin::codec::CodecP for OpenSecureChannelRequest {
         fn encode(&self, bytes: &mut Vec<u8>){
-            BinaryEncoder::encode(self, bytes);
+            let _ = BinaryEncoder::encode(self, bytes);
         }
         fn read(&mut self, r: &mut puffin::codec::Reader) -> Result<(), puffin::error::Error> {
             Ok(<OpenSecureChannelRequest as BinaryEncoder<OpenSecureChannelRequest>>::decode(r, &DecodingOptions::default())

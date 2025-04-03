@@ -21,6 +21,7 @@ use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledg
 use serde::{Deserialize, Serialize};
 
 use crate::puffin::signature::OPCUA_SIGNATURE;
+use crate::types::service_types::MessageSecurityMode;
 
 // Types: we will eventually want to move this to the opcua-mapper package
 
@@ -28,8 +29,9 @@ use crate::puffin::signature::OPCUA_SIGNATURE;
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum AgentType {
-    Server,
     Client,
+    Server,
+    User,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]

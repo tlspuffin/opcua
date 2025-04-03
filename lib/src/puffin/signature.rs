@@ -5,10 +5,11 @@ use puffin::error::Error;
 use puffin::protocol::{Extractable, ProtocolTypes};
 use puffin::trace::{Knowledge, Source};
 use puffin::{
-    codec, define_signature, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec,
+    codec, define_signature, dummy_codec, dummy_extract_knowledge//, dummy_extract_knowledge_codec,
 };
 
 use crate::puffin::types::OpcuaProtocolTypes;
+use crate::puffin::fn_constants::*;
 
 /* -----------------------------------------------------------------------------
               TO REMOVE LATER
@@ -44,9 +45,12 @@ pub fn fn_message_chunk() -> Result<MessageChunk, FnError> {
 define_signature! {
     OPCUA_SIGNATURE<OpcuaProtocolTypes>,
     // constants
-    // fn_true
-    // fn_false
-    // fn_seq_0
+    //fn_true
+    //fn_false
+    fn_none
+    fn_sign
+    fn_encrypt
+    //fn_seq_0
     //fn_open_channel_request
     fn_message_chunk
 }

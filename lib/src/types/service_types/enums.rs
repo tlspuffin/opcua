@@ -852,7 +852,11 @@ impl BinaryEncoder<ApplicationType> for ApplicationType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+use extractable_macro::Extractable;
+use crate::puffin::types::OpcuaProtocolTypes;
+
+#[derive(Debug, Copy, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub enum MessageSecurityMode {
     Invalid = 0,
     None = 1,
@@ -883,6 +887,25 @@ impl BinaryEncoder<MessageSecurityMode> for MessageSecurityMode {
         }
     }
 }
+
+use puffin::codec::{CodecP, Reader};
+use puffin::error::Error;
+
+impl CodecP for MessageSecurityMode{
+    fn encode(&self, bytes: &mut Vec<u8>){
+        let _ = BinaryEncoder::encode(self, bytes);
+    }
+
+    fn read(&mut self, r: &mut Reader) -> Result<(), Error> {
+        Ok(MessageSecurityMode::decode(r, &DecodingOptions::default())
+            .map_err(|e| puffin::error::Error::Codec(
+                format!("CodecP error in opcua-mapper: {e}")))
+            .map(|o| {
+                *self = o;
+            })?)
+    }
+}
+
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum UserTokenType {
