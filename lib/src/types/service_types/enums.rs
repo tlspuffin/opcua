@@ -888,6 +888,8 @@ impl BinaryEncoder<MessageSecurityMode> for MessageSecurityMode {
     }
 }
 
+crate::impl_codec_p!(MessageSecurityMode);
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum UserTokenType {
     Anonymous = 0,
@@ -920,7 +922,8 @@ impl BinaryEncoder<UserTokenType> for UserTokenType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub enum SecurityTokenRequestType {
     Issue = 0,
     Renew = 1,
@@ -947,6 +950,8 @@ impl BinaryEncoder<SecurityTokenRequestType> for SecurityTokenRequestType {
         }
     }
 }
+
+crate::impl_codec_p!(SecurityTokenRequestType);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NodeAttributesMask {

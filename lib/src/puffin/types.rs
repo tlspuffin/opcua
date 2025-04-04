@@ -1,23 +1,17 @@
 // The OPC UA protocol types, adapted to puffin.
 
-use core::any::TypeId;
-use std::fmt;
-use std::io::Read;
-
 use puffin::agent::{AgentDescriptor, AgentName, ProtocolDescriptorConfig};
 use puffin::algebra::signature::Signature;
 use puffin::algebra::Matcher;
-use puffin::claims::SecurityViolationPolicy;
-use puffin::codec::{Codec, CodecP, Reader};
-use puffin::error::Error;
+
 use puffin::protocol::{
-    EvaluatedTerm, Extractable, OpaqueProtocolMessage, OpaqueProtocolMessageFlight,
-    ProtocolBehavior, ProtocolMessage, ProtocolMessageDeframer, ProtocolMessageFlight,
+    //EvaluatedTerm, Extractable, OpaqueProtocolMessage, OpaqueProtocolMessageFlight,
+    //ProtocolBehavior, ProtocolMessage, ProtocolMessageDeframer, ProtocolMessageFlight,
     ProtocolTypes,
 };
-use puffin::put::PutDescriptor;
-use puffin::trace::{Knowledge, Source, Trace};
-use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec};
+//use puffin::put::PutDescriptor;
+//use puffin::trace::{Knowledge, Source, Trace};
+//use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec};
 use serde::{Deserialize, Serialize};
 
 use crate::puffin::signature::OPCUA_SIGNATURE;
@@ -39,6 +33,7 @@ pub enum OpcuaVersion {
     V1_5, // with ECC
 }
 
+// Can't use the MessageSecurityMode because it requires the Eq trait.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum ChannelMode {
     None,    // unsecure channel

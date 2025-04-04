@@ -1,20 +1,17 @@
-use crate::prelude::DecodingOptions;
-use crate::prelude::BinaryEncoder;
 use extractable_macro::Extractable;
 use puffin::algebra::dynamic_function::FunctionAttributes;
 use puffin::algebra::error::FnError;
 use puffin::error::Error;
-use puffin::protocol::{Extractable, ProtocolTypes};
-use puffin::trace::{Knowledge, Source};
 use puffin::{
-    codec, define_signature, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec,
+    codec, define_signature, dummy_codec, //dummy_extract_knowledge, dummy_extract_knowledge_codec,
 };
 use crate::prelude::ByteString;
+use crate::puffin::fn_constants::*;
 use crate::puffin::types::OpcuaProtocolTypes;
-use crate::types::basic_types::*;
-use crate::types::{MessageSecurityMode, OpenSecureChannelRequest, SecurityTokenRequestType};
-
-crate::impl_codec_p!(OpenSecureChannelRequest, MessageSecurityMode, ByteString);
+use crate::types::{
+    DiagnosticBits, ExtensionObject, Identifier, IntegerId, MessageSecurityMode, NodeId, OpenSecureChannelRequest,
+    RequestHeader, SecurityTokenRequestType, UAString, UtcTime
+};
 
 /*
 From types::service_types::open_secure_channel_request:
@@ -43,7 +40,30 @@ pub fn fn_open_channel_request(
         requested_lifetime: 0,
     })
 }
-use crate::puffin::fn_constants::*;
+
+// /!\ The SA Token is an UInt32 identifier !
+pub fn fn_sa_token(v: u32) -> Result<NodeId, FnError> {
+    Ok(NodeId {
+        namespace: 0,
+        identifier: Identifier::from(v)
+    })
+}
+
+pub fn fn_request_header(
+    authentication_token: &NodeId,
+    request_id: IntegerId,
+) -> Result<RequestHeader, FnError> {
+    Ok(RequestHeader{
+        authentication_token: authentication_token.clone(),
+        timestamp: UtcTime::now(),
+        request_handle: request_id,
+        return_diagnostics: DiagnosticBits::empty(),
+        audit_entry_id: UAString::null(),
+        timeout_hint: 0, // No timeout
+        additional_header: ExtensionObject::default()
+    })
+}
+
 
 /* -----------------------------------------------------------------------------
               TO REMOVE LATER
@@ -84,6 +104,7 @@ define_signature! {
     fn_sign
     fn_encrypt
     fn_seq_0
+    // messages
     fn_open_channel_request
     fn_message_chunk
 }

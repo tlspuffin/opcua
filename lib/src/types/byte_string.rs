@@ -6,12 +6,6 @@
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use extractable_macro::Extractable;
-use puffin::dummy_extract_knowledge;
-use puffin::error::Error;
-use puffin::trace::Source;
-use puffin::protocol::ProtocolTypes;
-use puffin::trace::Knowledge;
-use puffin::protocol::Extractable;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     convert::TryFrom,
@@ -35,8 +29,6 @@ use crate::types::{
 pub struct ByteString {
     pub value: Option<Vec<u8>>,
 }
-
-dummy_extract_knowledge!(OpcuaProtocolTypes, u8);
 
 impl AsRef<[u8]> for ByteString {
     fn as_ref(&self) -> &[u8] {
@@ -146,6 +138,8 @@ impl BinaryEncoder<ByteString> for ByteString {
         }
     }
 }
+
+crate::impl_codec_p!(ByteString);
 
 impl<'a, T> From<&'a T> for ByteString
 where
