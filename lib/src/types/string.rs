@@ -10,7 +10,9 @@ use std::{
 };
 
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use extractable_macro::Extractable;
 
+use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     encoding::{
         process_decode_io_result, process_encode_io_result, write_i32, BinaryEncoder,
@@ -25,8 +27,10 @@ use crate::types::{
 /// A string contains UTF-8 encoded characters or a null value. A null value is distinct from
 /// being an empty string so internally, the code maintains that distinction by holding the value
 /// as an `Option<String>`.
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct UAString {
+    #[extractable_ignore]
     value: Option<String>,
 }
 
@@ -143,6 +147,8 @@ impl BinaryEncoder<UAString> for UAString {
         }
     }
 }
+
+crate::impl_codec_p!(UAString);
 
 impl From<UAString> for String {
     fn from(value: UAString) -> Self {
