@@ -9,7 +9,7 @@ use crate::prelude::ByteString;
 use crate::puffin::fn_constants::*;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    DiagnosticBits, ExtensionObject, Identifier, IntegerId, MessageSecurityMode, NodeId, OpenSecureChannelRequest,
+    DiagnosticBits, ExtensionObject, Identifier, MessageSecurityMode, NodeId, OpenSecureChannelRequest,
     RequestHeader, SecurityTokenRequestType, UAString, UtcTime
 };
 
@@ -50,11 +50,11 @@ pub fn fn_sa_token(v: u32) -> Result<NodeId, FnError> {
 }
 
 pub fn fn_request_header(
-    authentication_token: &NodeId,
-    request_id: IntegerId,
+    sa_token: &NodeId,
+    request_id: u32,
 ) -> Result<RequestHeader, FnError> {
     Ok(RequestHeader{
-        authentication_token: authentication_token.clone(),
+        authentication_token: sa_token.clone(),
         timestamp: UtcTime::now(),
         request_handle: request_id,
         return_diagnostics: DiagnosticBits::empty(),

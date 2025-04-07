@@ -6,11 +6,15 @@
 
 use std::io::{Cursor, Error, ErrorKind, Read, Result, Write};
 
+use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     encoding::*, service_types::EndpointDescription, status_code::StatusCode, string::UAString,
 };
 
 use super::url::url_matches_except_host;
+
+use extractable_macro::Extractable;
+//use puffin::error::Error;
 
 pub const CHUNK_MESSAGE: &[u8] = b"MSG";
 pub const OPEN_SECURE_CHANNEL_MESSAGE: &[u8] = b"OPN";
@@ -39,15 +43,14 @@ pub enum MessageType {
     Error,
 }
 
-#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
-#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct MessageHeader {
     #[extractable_ignore]
     pub message_type: MessageType,
     #[extractable_ignore]
     pub message_size: u32,
 }
-crate::impl_codec_p!(MessageHeader);
 
 impl BinaryEncoder<MessageHeader> for MessageHeader {
     fn byte_len(&self) -> usize {
@@ -83,6 +86,7 @@ impl BinaryEncoder<MessageHeader> for MessageHeader {
         })
     }
 }
+crate::impl_codec_p!(MessageHeader);
 
 impl MessageHeader {
     pub fn new(message_type: MessageType) -> MessageHeader {
@@ -175,7 +179,8 @@ impl MessageHeader {
 }
 
 /// Implementation of the HEL message in OPC UA
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct HelloMessage {
     pub message_header: MessageHeader,
     pub protocol_version: u32,
@@ -223,6 +228,7 @@ impl BinaryEncoder<HelloMessage> for HelloMessage {
         })
     }
 }
+crate::impl_codec_p!(HelloMessage);
 
 impl HelloMessage {
     const MAX_URL_LEN: usize = 4096;
@@ -284,7 +290,8 @@ impl HelloMessage {
 }
 
 /// Implementation of the ACK message in OPC UA
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct AcknowledgeMessage {
     pub message_header: MessageHeader,
     pub protocol_version: u32,
@@ -327,9 +334,11 @@ impl BinaryEncoder<AcknowledgeMessage> for AcknowledgeMessage {
         })
     }
 }
+crate::impl_codec_p!(AcknowledgeMessage);
 
 /// Implementation of the ERR message in OPC UA
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct ErrorMessage {
     pub message_header: MessageHeader,
     pub error: u32,
@@ -360,6 +369,7 @@ impl BinaryEncoder<ErrorMessage> for ErrorMessage {
         })
     }
 }
+crate::impl_codec_p!(ErrorMessage);
 
 impl ErrorMessage {
     pub fn from_status_code(status_code: StatusCode) -> ErrorMessage {

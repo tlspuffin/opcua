@@ -7,6 +7,7 @@
 
 use std::io::{Cursor, Read, Write};
 
+use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{status_code::StatusCode, *};
 
 use super::{
@@ -20,6 +21,8 @@ use super::{
         CLOSE_SECURE_CHANNEL_MESSAGE, MIN_CHUNK_SIZE, OPEN_SECURE_CHANNEL_MESSAGE,
     },
 };
+
+use extractable_macro::Extractable;
 
 /// The size of a chunk header, used by several places
 pub const MESSAGE_CHUNK_HEADER_SIZE: usize = 12;
@@ -47,11 +50,14 @@ pub enum MessageIsFinalType {
     FinalError,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct MessageChunkHeader {
     /// The kind of chunk - message, open or close
+    #[extractable_ignore]
     pub message_type: MessageChunkType,
     /// The chunk type - C == intermediate, F = the final chunk, A = the final chunk when aborting
+    #[extractable_ignore]
     pub is_final: MessageIsFinalType,
     /// The size of the chunk (message) including the header
     pub message_size: u32,
@@ -122,6 +128,7 @@ impl BinaryEncoder<MessageChunkHeader> for MessageChunkHeader {
         })
     }
 }
+crate::impl_codec_p!(MessageChunkHeader);
 
 impl MessageChunkHeader {}
 
