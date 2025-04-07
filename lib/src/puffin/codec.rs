@@ -5,7 +5,7 @@ macro_rules! impl_codec_p {
         fn encode(&self, bytes: &mut Vec<u8>){
             let _ = BinaryEncoder::encode(self, bytes);
         }
-        fn read(&mut self, r: &mut puffin::codec::Reader) -> Result<(), puffin::error::Error> {
+        fn read(&mut self, r: &mut puffin::codec::Reader) -> core::result::Result<(), puffin::error::Error> {
             Ok(<$t as BinaryEncoder<$t>>::decode(r, &DecodingOptions::default())
                 .map_err(|e| puffin::error::Error::Codec(
                     format!("CodecP error in opcua-mapper for type {}: {e}",  std::any::type_name::<$t>())))

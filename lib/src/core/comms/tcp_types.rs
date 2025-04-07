@@ -39,11 +39,15 @@ pub enum MessageType {
     Error,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct MessageHeader {
+    #[extractable_ignore]
     pub message_type: MessageType,
+    #[extractable_ignore]
     pub message_size: u32,
 }
+crate::impl_codec_p!(MessageHeader);
 
 impl BinaryEncoder<MessageHeader> for MessageHeader {
     fn byte_len(&self) -> usize {
