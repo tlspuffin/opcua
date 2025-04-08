@@ -1,3 +1,21 @@
+/// Implements CodecP trait for structs that already implement BinaryEncoder
+///
+/// # Usage
+///
+/// ```ignore
+/// use extractable_macro::Extractable;
+/// use crate::puffin::types::OpcuaProtocolTypes;
+///
+/// #[derive(Debug, Copy, Clone, PartialEq, Extractable)]
+/// #[extractable(OpcuaProtocolTypes)]
+/// pub struct MyStruct { }
+///
+/// impl BinaryEncoder<MyStruct> for MyStruct { }
+///
+/// crate::impl_codec_p!(MyStruct);
+/// ```
+
+
 #[macro_export]
 macro_rules! impl_codec_p {
     ($($t:ty),*) => {

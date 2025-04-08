@@ -5,13 +5,70 @@ use puffin::error::Error;
 use puffin::{
     codec, define_signature, dummy_codec, //dummy_extract_knowledge, dummy_extract_knowledge_codec,
 };
-use crate::prelude::ByteString;
+use crate::prelude::{ByteString, MessageType};
 use crate::puffin::fn_constants::*;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    DiagnosticBits, ExtensionObject, Identifier, MessageSecurityMode, NodeId, OpenSecureChannelRequest,
-    RequestHeader, SecurityTokenRequestType, UAString, UtcTime
+    AcknowledgeMessage, DiagnosticBits, ErrorMessage, ExtensionObject, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, NodeId, 
+    OpenSecureChannelRequest, RequestHeader, SecurityTokenRequestType, UAString, UtcTime
 };
+
+pub fn fn_hello (
+    endpoint_url: &UAString,
+    //message_header: &MessageHeader,
+    // send_buffer_size: u32,
+    //receive_buffer_size: u32,
+    //max_message_size: u32,
+    //max_chunk_count: u32,
+) -> Result<HelloMessage, FnError> {
+    // Ok(HelloMessage::new(
+    //     endpoint_url,
+    //     send_buffer_size,
+    //     receive_buffer_size,
+    //     max_message_size,
+    //     max_chunk_count))
+    // let mut msg = HelloMessage {
+    Ok(HelloMessage {
+        message_header: MessageHeader::new(MessageType::Hello),
+        protocol_version: 0,
+        send_buffer_size: 0,
+        receive_buffer_size: 0,
+        max_message_size: 0,
+        max_chunk_count: 0,
+        endpoint_url: endpoint_url.clone()//: UAString::null() //UAString::from(endpoint_url),
+    })
+    //msg.message_header.message_size = msg.byte_len() as u32;
+    //msg
+}
+
+pub fn fn_acknowledge (
+    //message_header: &MessageHeader,
+    //receive_buffer_size: u32,
+    //send_buffer_size: u32,
+    //max_message_size: u32,
+    //max_chunk_count: u32
+) -> Result<AcknowledgeMessage, FnError> {
+    Ok(AcknowledgeMessage{
+        message_header: MessageHeader::new(MessageType::Acknowledge),
+        protocol_version: 0,
+        receive_buffer_size: 0,
+        send_buffer_size: 0,
+        max_message_size: 0,
+        max_chunk_count: 0
+        }
+    )
+}
+
+pub fn fn_error (
+   reason: &UAString,
+   //error_code: u32
+) -> Result<ErrorMessage, FnError> {
+    Ok(ErrorMessage{
+        message_header: MessageHeader::new(MessageType::Error),
+        error: 0,//error_code,
+        reason: reason.clone(),
+    })
+}
 
 /*
 From types::service_types::open_secure_channel_request:
@@ -41,7 +98,7 @@ pub fn fn_open_channel_request(
     })
 }
 
-// /!\ The SA Token is an UInt32 identifier !
+// /!\ The SA Token is an UInt32 identifier for a NodeId!
 pub fn fn_sa_token(v: u32) -> Result<NodeId, FnError> {
     Ok(NodeId {
         namespace: 0,
@@ -105,6 +162,9 @@ define_signature! {
     fn_encrypt
     fn_seq_0
     // messages
+    fn_hello
+    fn_acknowledge
     fn_open_channel_request
+    fn_error
     fn_message_chunk
 }
