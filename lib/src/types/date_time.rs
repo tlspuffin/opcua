@@ -12,9 +12,11 @@ use std::{
     str::FromStr,
 };
 
+use extractable_macro::Extractable;
 use chrono::{Duration, SecondsFormat, TimeDelta, TimeZone, Timelike, Utc};
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 
+use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::*;
 
 const NANOS_PER_SECOND: i64 = 1_000_000_000;
@@ -28,8 +30,10 @@ pub type DateTimeUtc = chrono::DateTime<Utc>;
 
 /// A date/time value. This is a wrapper around the chrono type with extra functionality
 /// for obtaining ticks in OPC UA measurements, endtimes, epoch etc.
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(PartialEq, Debug, Clone, Copy, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct DateTime {
+    #[extractable_ignore]
     date_time: DateTimeUtc,
 }
 
@@ -73,6 +77,8 @@ impl BinaryEncoder<DateTime> for DateTime {
         Ok(date_time - decoding_options.client_offset)
     }
 }
+
+crate::impl_codec_p!(DateTime);
 
 impl Default for DateTime {
     fn default() -> Self {
