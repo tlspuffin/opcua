@@ -7,20 +7,18 @@
 
 #![allow(unused_attributes)]
 #[allow(unused_imports)]
-use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     byte_string::ByteString, encoding::*, node_ids::ObjectId,
     request_header::RequestHeader, service_types::enums::MessageSecurityMode,
     service_types::enums::SecurityTokenRequestType, service_types::impls::MessageInfo,
 };
 
-use extractable_macro::Extractable;
 use std::io::{Read, Write};
 
 // Idea for the long-term: TODO1: CodecP, TODO2: Extractable, TODO3: Constructor
 // #[derive(Debug, Clone, PartialEq, CodecP, Extractable, Constructor)]
-#[derive(Debug, Clone, PartialEq, Extractable)]
-#[extractable(OpcuaProtocolTypes)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct OpenSecureChannelRequest {
     pub request_header: RequestHeader,
     pub client_protocol_version: u32,

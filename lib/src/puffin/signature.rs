@@ -2,72 +2,63 @@ use extractable_macro::Extractable;
 use puffin::algebra::dynamic_function::FunctionAttributes;
 use puffin::algebra::error::FnError;
 use puffin::error::Error;
-use puffin::{
-    codec, define_signature, dummy_codec, //dummy_extract_knowledge, dummy_extract_knowledge_codec,
-};
+use puffin::{codec, define_signature, dummy_codec};
 use crate::prelude::{ByteString, MessageType};
 use crate::puffin::fn_constants::*;
 use crate::puffin::types::OpcuaProtocolTypes;
+use crate::types::encoding::BinaryEncoder;
 use crate::types::{
     AcknowledgeMessage, DiagnosticBits, ErrorMessage, ExtensionObject, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, NodeId, 
     OpenSecureChannelRequest, RequestHeader, SecurityTokenRequestType, UAString, UtcTime
 };
 
+/// UA TCP client Hello message
 pub fn fn_hello (
     endpoint_url: &UAString,
-    //message_header: &MessageHeader,
-    // send_buffer_size: u32,
-    //receive_buffer_size: u32,
-    //max_message_size: u32,
-    //max_chunk_count: u32,
+    send_buffer_size: &u32,
+    receive_buffer_size: &u32,
 ) -> Result<HelloMessage, FnError> {
-    // Ok(HelloMessage::new(
-    //     endpoint_url,
-    //     send_buffer_size,
-    //     receive_buffer_size,
-    //     max_message_size,
-    //     max_chunk_count))
-    // let mut msg = HelloMessage {
-    Ok(HelloMessage {
+    let mut msg = HelloMessage {
         message_header: MessageHeader::new(MessageType::Hello),
         protocol_version: 0,
-        send_buffer_size: 0,
-        receive_buffer_size: 0,
-        max_message_size: 0,
-        max_chunk_count: 0,
-        endpoint_url: endpoint_url.clone()//: UAString::null() //UAString::from(endpoint_url),
-    })
-    //msg.message_header.message_size = msg.byte_len() as u32;
-    //msg
+        send_buffer_size: *send_buffer_size,
+        receive_buffer_size: *receive_buffer_size,
+        max_message_size: 0,  // 0: Client has no limit
+        max_chunk_count: 0,   // 0: Client has no limit
+        endpoint_url: endpoint_url.clone()
+    };
+    msg.message_header.message_size = msg.byte_len() as u32;
+    Ok(msg)
 }
 
+/// UA TCP server response to Hello message
 pub fn fn_acknowledge (
-    //message_header: &MessageHeader,
-    //receive_buffer_size: u32,
-    //send_buffer_size: u32,
-    //max_message_size: u32,
-    //max_chunk_count: u32
+    receive_buffer_size: &u32,
+    send_buffer_size: &u32,
 ) -> Result<AcknowledgeMessage, FnError> {
-    Ok(AcknowledgeMessage{
+    let mut msg = AcknowledgeMessage {
         message_header: MessageHeader::new(MessageType::Acknowledge),
         protocol_version: 0,
-        receive_buffer_size: 0,
-        send_buffer_size: 0,
-        max_message_size: 0,
-        max_chunk_count: 0
-        }
-    )
+        receive_buffer_size: *receive_buffer_size,
+        send_buffer_size: *send_buffer_size,
+        max_message_size: 0,  // 0: Server has no limit
+        max_chunk_count: 0,   // 0: Server has no limit
+    };
+    msg.message_header.message_size = msg.byte_len() as u32;
+    Ok(msg)
 }
 
 pub fn fn_error (
    reason: &UAString,
-   //error_code: u32
+   error_code: &u32
 ) -> Result<ErrorMessage, FnError> {
-    Ok(ErrorMessage{
+    let mut msg = ErrorMessage {
         message_header: MessageHeader::new(MessageType::Error),
-        error: 0,//error_code,
+        error: *error_code,
         reason: reason.clone(),
-    })
+    };
+    msg.message_header.message_size = msg.byte_len() as u32;
+    Ok(msg)
 }
 
 /*
@@ -99,21 +90,21 @@ pub fn fn_open_channel_request(
 }
 
 // /!\ The SA Token is an UInt32 identifier for a NodeId!
-pub fn fn_sa_token(v: u32) -> Result<NodeId, FnError> {
+pub fn fn_sa_token(v: &u32) -> Result<NodeId, FnError> {
     Ok(NodeId {
         namespace: 0,
-        identifier: Identifier::from(v)
+        identifier: Identifier::from(*v)
     })
 }
 
 pub fn fn_request_header(
     sa_token: &NodeId,
-    request_id: u32,
+    request_id: &u32,
 ) -> Result<RequestHeader, FnError> {
     Ok(RequestHeader{
         authentication_token: sa_token.clone(),
         timestamp: UtcTime::now(),
-        request_handle: request_id,
+        request_handle: *request_id,
         return_diagnostics: DiagnosticBits::empty(),
         audit_entry_id: UAString::null(),
         timeout_hint: 0, // No timeout
@@ -161,10 +152,12 @@ define_signature! {
     fn_sign
     fn_encrypt
     fn_seq_0
+    fn_sa_token
     // messages
     fn_hello
     fn_acknowledge
-    fn_open_channel_request
     fn_error
+    fn_open_channel_request
+    fn_request_header
     fn_message_chunk
 }
