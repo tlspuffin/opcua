@@ -1,16 +1,25 @@
 use extractable_macro::Extractable;
+use fn_impl::*;
 use puffin::algebra::dynamic_function::FunctionAttributes;
 use puffin::algebra::error::FnError;
 use puffin::error::Error;
 use puffin::{codec, define_signature, dummy_codec};
 use crate::prelude::{ByteString, MessageType};
-use crate::puffin::fn_constants::*;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{
     AcknowledgeMessage, DiagnosticBits, ErrorMessage, ExtensionObject, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, NodeId, 
     OpenSecureChannelRequest, RequestHeader, SecurityTokenRequestType, UAString, UtcTime
 };
+
+/// These modules contain all the concrete implementations of function symbols.
+#[path = "."]
+pub mod fn_impl {
+    pub mod fn_constants;
+
+    pub use fn_constants::*;
+}
+
 
 /// UA TCP client Hello message
 pub fn fn_hello (
@@ -48,6 +57,7 @@ pub fn fn_acknowledge (
     Ok(msg)
 }
 
+/// UA TCP Error message
 pub fn fn_error (
    reason: &UAString,
    error_code: &u32
@@ -153,6 +163,7 @@ define_signature! {
     fn_encrypt
     fn_seq_0
     fn_sa_token
+
     // messages
     fn_hello
     fn_acknowledge

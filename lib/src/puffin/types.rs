@@ -2,7 +2,7 @@
 
 use puffin::agent::{AgentDescriptor, AgentName, ProtocolDescriptorConfig};
 use puffin::algebra::signature::Signature;
-use puffin::algebra::Matcher;
+use crate::puffin::query::OpcuaQueryMatcher;
 
 use puffin::protocol::{
     //EvaluatedTerm, Extractable, OpaqueProtocolMessage, OpaqueProtocolMessageFlight,
@@ -125,29 +125,6 @@ impl Default for OpcuaDescriptorConfig {
     }
 }
 
-// Query Matcher:
-
-#[derive(Debug, Deserialize, Serialize, Clone, Copy, Hash, Eq, PartialEq)]
-pub enum OpcuaQueryMatcher {
-    Hello,   // HEL
-    Open,    // OPN
-    Message, // MSG
-    Close,   // CLO
-}
-
-impl Matcher for OpcuaQueryMatcher {
-    fn matches(&self, matcher: &Self) -> bool {
-        match matcher {
-            _ => false,
-        }
-    }
-
-    fn specificity(&self) -> u32 {
-        match self {
-            _ => 0,
-        }
-    }
-}
 
 // Protocol Types:
 
