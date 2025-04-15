@@ -16,8 +16,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::puffin::signature::OPCUA_SIGNATURE;
 
-// Types: we will eventually want to move this to the opcua-mapper package
-
 // PUT configuration descriptor:
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -58,50 +56,58 @@ pub enum UserToken {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct OpcuaDescriptorConfig {
-    pub kind: AgentType,
     pub version: OpcuaVersion,
+    pub kind: AgentType,
+    pub security_policy: String, /// ciphers
     pub mode: ChannelMode,
-    pub check: SessionSecurity,
-    /// Default: SSec.
-    pub login: UserToken,
-    /// List of available OPC UA ciphers
-    pub cipher_string: String,
+    pub check: SessionSecurity, /// Default: SSec.
+    pub utoken: UserToken,
+}
+
+impl Default for OpcuaDescriptorConfig {
+    fn default() -> Self {
+        Self {
+            version: OpcuaVersion::V1_4,
+            kind: AgentType::Server,
+            security_policy: String::from("Basic256Sha256"),
+            mode: ChannelMode::Sign,
+            check: SessionSecurity::SSec,
+            utoken: UserToken::Certificate,
+        }
+    }
 }
 
 impl OpcuaDescriptorConfig {
+
     pub fn new_client(
         name: AgentName,
         mode: ChannelMode,
-        login: UserToken,
+        utoken: UserToken,
     ) -> AgentDescriptor<Self> {
-        let protocol_config = Self {
-            kind: AgentType::Client,
-            mode,
-            login,
-            ..Self::default()
-        };
-
         AgentDescriptor {
             name,
-            protocol_config,
+            protocol_config: OpcuaDescriptorConfig {
+                kind: AgentType::Client,
+                mode,
+                utoken,
+                ..Self::default()
+            }
         }
     }
 
     pub fn new_server(
         name: AgentName,
         mode: ChannelMode,
-        login: UserToken,
+        utoken: UserToken,
     ) -> AgentDescriptor<Self> {
-        let protocol_config = Self {
-            kind: AgentType::Server,
-            mode,
-            login,
-            ..Self::default()
-        };
-
         AgentDescriptor {
             name,
-            protocol_config,
+            protocol_config: OpcuaDescriptorConfig {
+                kind: AgentType::Server,
+                mode,
+                utoken,
+                ..Self::default()
+            }
         }
     }
 }
@@ -112,18 +118,6 @@ impl ProtocolDescriptorConfig for OpcuaDescriptorConfig {
     }
 }
 
-impl Default for OpcuaDescriptorConfig {
-    fn default() -> Self {
-        Self {
-            kind: AgentType::Server,
-            version: OpcuaVersion::V1_4,
-            mode: ChannelMode::Sign,
-            check: SessionSecurity::SSec,
-            login: UserToken::Certificate,
-            cipher_string: String::from("ALL"),
-        }
-    }
-}
 
 
 // Protocol Types:
