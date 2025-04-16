@@ -60,6 +60,7 @@ pub struct MessageChunkHeader {
     #[extractable_ignore]
     pub is_final: MessageIsFinalType,
     /// The size of the chunk (message) including the header
+    #[extractable_ignore]
     pub message_size: u32,
     /// Secure channel id
     pub secure_channel_id: u32,
@@ -135,7 +136,7 @@ impl MessageChunkHeader {}
 /// A chunk holds a message or a portion of a message, if the message has been split into multiple chunks.
 /// The chunk's data may be signed and encrypted. To extract the message requires all the chunks
 /// to be available in sequence so they can be formed back into the message.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MessageChunk {
     /// All of the chunk's data including headers, payload, padding, signature
     pub data: Vec<u8>,
@@ -188,6 +189,7 @@ impl BinaryEncoder<MessageChunk> for MessageChunk {
         }
     }
 }
+crate::impl_codec_p!(MessageChunk);
 
 impl MessageChunk {
     pub fn new(

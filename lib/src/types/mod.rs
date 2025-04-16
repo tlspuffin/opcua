@@ -230,6 +230,7 @@ pub use crate::types::{
     status_code::*, string::*, variant::*, variant_type_id::*,
 };
 
+pub use crate::core::comms::message_chunk::MessageChunk;
 pub use crate::core::comms::tcp_types::*;
 
 #[cfg(test)]
