@@ -24,8 +24,8 @@ use crate::types::{
 use super::{
     message_chunk::MessageChunk,
     tcp_types::{
-        AcknowledgeMessage, ErrorMessage, HelloMessage, MessageHeader, MessageType,
-        MESSAGE_HEADER_LEN,
+        AcknowledgeMessage, ErrorMessage, HelloMessage, ReverseHelloMessage,
+        MessageHeader, MessageType, MESSAGE_HEADER_LEN,
     },
 };
 
@@ -34,6 +34,7 @@ pub enum Message {
     Hello(HelloMessage),
     Acknowledge(AcknowledgeMessage),
     Error(ErrorMessage),
+    Reverse(ReverseHelloMessage),
     Chunk(MessageChunk),
 }
 
@@ -90,6 +91,7 @@ impl Encoder<Message> for TcpCodec {
             Message::Hello(msg) => self.write(msg, buf),
             Message::Acknowledge(msg) => self.write(msg, buf),
             Message::Error(msg) => self.write(msg, buf),
+            Message::Reverse(msg) => self.write(msg, buf),
             Message::Chunk(msg) => self.write(msg, buf),
         }
     }
@@ -127,6 +129,10 @@ impl TcpCodec {
                 decoding_options,
             )?)),
             MessageType::Hello => Ok(Message::Hello(HelloMessage::decode(
+                &mut buf,
+                decoding_options,
+            )?)),
+            MessageType::Reverse => Ok(Message::Reverse(ReverseHelloMessage::decode(
                 &mut buf,
                 decoding_options,
             )?)),
