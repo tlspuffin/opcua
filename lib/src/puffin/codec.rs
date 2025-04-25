@@ -3,11 +3,9 @@
 /// # Usage
 ///
 /// ```ignore
-/// use extractable_macro::Extractable;
-/// use crate::puffin::types::OpcuaProtocolTypes;
 ///
-/// #[derive(Debug, Copy, Clone, PartialEq, Extractable)]
-/// #[extractable(OpcuaProtocolTypes)]
+/// #[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+/// #[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 /// pub struct MyStruct { }
 ///
 /// impl BinaryEncoder<MyStruct> for MyStruct { }
