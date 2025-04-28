@@ -23,7 +23,7 @@ pub mod fn_impl {
 
 /// UA TCP client Hello message
 pub fn fn_hello (
-    endpoint_url: &UAString,
+    endpoint_url: &String,
     send_buffer_size: &usize,
     receive_buffer_size: &usize
 ) -> Result<HelloMessage, FnError> {
@@ -34,7 +34,7 @@ pub fn fn_hello (
         receive_buffer_size: *receive_buffer_size as u32,
         max_message_size: 0,  // 0: Client has no limit
         max_chunk_count: 0,   // 0: Client has no limit
-        endpoint_url: endpoint_url.clone()
+        endpoint_url: UAString::from(endpoint_url)
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(msg)
@@ -59,13 +59,13 @@ pub fn fn_acknowledge (
 
 /// UA TCP Error message
 pub fn fn_error (
-   reason: &UAString,
+   reason: &String,
    error_code: &u32
 ) -> Result<ErrorMessage, FnError> {
     let mut msg = ErrorMessage {
         message_header: MessageHeader::new(MessageType::Error),
         error: *error_code,
-        reason: reason.clone(),
+        reason: UAString::from(reason),
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(msg)
@@ -73,8 +73,8 @@ pub fn fn_error (
 
 /// UA TCP server Reverse Hello message
 pub fn fn_reverse_hello (
-    server_uri: &str,
-    endpoint_url: &str,
+    server_uri: &String,
+    endpoint_url: &String,
 ) -> Result<ReverseHelloMessage, FnError> {
     let mut msg = ReverseHelloMessage {
         message_header: MessageHeader::new(MessageType::Reverse),

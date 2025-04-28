@@ -14,9 +14,11 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct OpenSecureChannelResponse {
     pub response_header: ResponseHeader,
+    #[extractable_ignore]
     pub server_protocol_version: u32,
     pub security_token: ChannelSecurityToken,
     pub server_nonce: ByteString,
@@ -62,3 +64,4 @@ impl BinaryEncoder<OpenSecureChannelResponse> for OpenSecureChannelResponse {
         })
     }
 }
+crate::impl_codec_p!(OpenSecureChannelResponse);
