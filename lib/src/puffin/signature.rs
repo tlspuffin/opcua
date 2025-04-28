@@ -9,7 +9,7 @@ use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{
     AcknowledgeMessage, DiagnosticBits, ErrorMessage, ExtensionObject, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, NodeId, 
-    OpenSecureChannelRequest, RequestHeader, SecurityTokenRequestType, UAString, UtcTime
+    OpenSecureChannelRequest, ReverseHelloMessage, RequestHeader, SecurityTokenRequestType, UAString, UtcTime
 };
 
 /// These modules contain all the concrete implementations of function symbols.
@@ -24,14 +24,14 @@ pub mod fn_impl {
 /// UA TCP client Hello message
 pub fn fn_hello (
     endpoint_url: &UAString,
-    send_buffer_size: &u32,
-    receive_buffer_size: &u32,
+    send_buffer_size: &usize,
+    receive_buffer_size: &usize
 ) -> Result<HelloMessage, FnError> {
     let mut msg = HelloMessage {
         message_header: MessageHeader::new(MessageType::Hello),
         protocol_version: 0,
-        send_buffer_size: *send_buffer_size,
-        receive_buffer_size: *receive_buffer_size,
+        send_buffer_size: *send_buffer_size as u32,
+        receive_buffer_size: *receive_buffer_size as u32,
         max_message_size: 0,  // 0: Client has no limit
         max_chunk_count: 0,   // 0: Client has no limit
         endpoint_url: endpoint_url.clone()
@@ -42,14 +42,14 @@ pub fn fn_hello (
 
 /// UA TCP server response to Hello message
 pub fn fn_acknowledge (
-    receive_buffer_size: &u32,
-    send_buffer_size: &u32,
+    receive_buffer_size: &usize,
+    send_buffer_size: &usize,
 ) -> Result<AcknowledgeMessage, FnError> {
     let mut msg = AcknowledgeMessage {
         message_header: MessageHeader::new(MessageType::Acknowledge),
         protocol_version: 0,
-        receive_buffer_size: *receive_buffer_size,
-        send_buffer_size: *send_buffer_size,
+        receive_buffer_size: *receive_buffer_size as u32,
+        send_buffer_size: *send_buffer_size as u32,
         max_message_size: 0,  // 0: Server has no limit
         max_chunk_count: 0,   // 0: Server has no limit
     };
@@ -66,6 +66,20 @@ pub fn fn_error (
         message_header: MessageHeader::new(MessageType::Error),
         error: *error_code,
         reason: reason.clone(),
+    };
+    msg.message_header.message_size = msg.byte_len() as u32;
+    Ok(msg)
+}
+
+/// UA TCP server Reverse Hello message
+pub fn fn_reverse_hello (
+    server_uri: &str,
+    endpoint_url: &str,
+) -> Result<ReverseHelloMessage, FnError> {
+    let mut msg = ReverseHelloMessage {
+        message_header: MessageHeader::new(MessageType::Reverse),
+        server_uri: UAString::from(server_uri),
+        endpoint_url: UAString::from(endpoint_url)
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(msg)
@@ -123,36 +137,6 @@ pub fn fn_request_header(
 }
 
 
-/* -----------------------------------------------------------------------------
-              TO REMOVE LATER
------------------------------------------------------------------------------ */
-
-#[derive(Clone, Debug, Extractable)]
-#[extractable(OpcuaProtocolTypes)]
-pub struct MessageChunk {
-    // msg_header: MessageHeader,
-    //sec_header: SecurityHeader,
-    payload: Vec<u8>,
-}
-
-dummy_codec!(OpcuaProtocolTypes, MessageChunk);
-
-pub fn fn_message_chunk() -> Result<MessageChunk, FnError> {
-    Ok(MessageChunk {
-        // msg_header: MessageHeader {
-        //     msg_type: *(b"OPN"),
-        //     // is_final: b'F',
-        //     // msg_size: 0x15,
-        //     sc_id: fn_new_channel_id().unwrap(),
-        // },
-        payload: vec![0x01, 0x02, 0x03, 0x04],
-    })
-}
-
-/* -----------------------------------------------------------------------------
-             END TO REMOVE LATER
------------------------------------------------------------------------------ */
-
 define_signature! {
     OPCUA_SIGNATURE<OpcuaProtocolTypes>,
     // constants
@@ -170,5 +154,4 @@ define_signature! {
     fn_error
     fn_open_channel_request
     fn_request_header
-    fn_message_chunk
 }

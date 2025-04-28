@@ -187,17 +187,3 @@ impl BinaryEncoder<f64> for f64 {
     }
 }
 
-
-// For Puffin:
-use puffin::{atom_extract_knowledge, dummy_extract_knowledge};
-use puffin::error::Error;
-use puffin::protocol::{Extractable, ProtocolTypes};
-use puffin::trace::{Knowledge, Source};
-
-use crate::puffin::types::OpcuaProtocolTypes;
-
-atom_extract_knowledge!(OpcuaProtocolTypes, bool);
-dummy_extract_knowledge!(OpcuaProtocolTypes, u8);
-atom_extract_knowledge!(OpcuaProtocolTypes, u16);
-atom_extract_knowledge!(OpcuaProtocolTypes, u32);
-//atom_extract_knowledge!(OpcuaProtocolTypes, f64);

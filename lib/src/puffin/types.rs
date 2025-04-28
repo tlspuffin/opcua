@@ -2,10 +2,13 @@
 
 use puffin::agent::{AgentDescriptor, AgentName, ProtocolDescriptorConfig};
 use puffin::algebra::signature::Signature;
-use crate::puffin::query::OpcuaQueryMatcher;
+use puffin::{atom_extract_knowledge, dummy_extract_knowledge};
+use puffin::error::Error;
+use puffin::trace::{Knowledge, Source};
 
 use puffin::protocol::{
-    //EvaluatedTerm, Extractable, OpaqueProtocolMessage, OpaqueProtocolMessageFlight,
+    //EvaluatedTerm,
+    Extractable, //OpaqueProtocolMessage, OpaqueProtocolMessageFlight,
     //ProtocolBehavior, ProtocolMessage, ProtocolMessageDeframer, ProtocolMessageFlight,
     ProtocolTypes,
 };
@@ -14,6 +17,7 @@ use puffin::protocol::{
 //use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec};
 use serde::{Deserialize, Serialize};
 
+use crate::puffin::query::OpcuaQueryMatcher;
 use crate::puffin::signature::OPCUA_SIGNATURE;
 
 // PUT configuration descriptor:
@@ -139,3 +143,10 @@ impl std::fmt::Display for OpcuaProtocolTypes {
         write!(f, "")
     }
 }
+
+// For Basic Types:
+atom_extract_knowledge!(OpcuaProtocolTypes, bool);
+dummy_extract_knowledge!(OpcuaProtocolTypes, u8);
+atom_extract_knowledge!(OpcuaProtocolTypes, u16);
+atom_extract_knowledge!(OpcuaProtocolTypes, u32);
+//atom_extract_knowledge!(OpcuaProtocolTypes, f64);
