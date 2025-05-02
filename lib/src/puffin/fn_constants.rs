@@ -24,3 +24,7 @@ pub fn fn_sign() -> Result<MessageSecurityMode, FnError> {
 pub fn fn_encrypt() -> Result<MessageSecurityMode, FnError> {
     Ok(MessageSecurityMode::SignAndEncrypt)
 }
+
+// ToDo:
+// - add client and server certificates
+// - security profiles
