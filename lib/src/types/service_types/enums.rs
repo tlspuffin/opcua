@@ -852,7 +852,11 @@ impl BinaryEncoder<ApplicationType> for ApplicationType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+use extractable_macro::Extractable;
+use crate::puffin::types::OpcuaProtocolTypes;
+
+#[derive(Debug, Copy, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub enum MessageSecurityMode {
     Invalid = 0,
     None = 1,
@@ -883,6 +887,8 @@ impl BinaryEncoder<MessageSecurityMode> for MessageSecurityMode {
         }
     }
 }
+
+crate::impl_codec_p!(MessageSecurityMode);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum UserTokenType {
@@ -916,7 +922,8 @@ impl BinaryEncoder<UserTokenType> for UserTokenType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub enum SecurityTokenRequestType {
     Issue = 0,
     Renew = 1,
@@ -943,6 +950,8 @@ impl BinaryEncoder<SecurityTokenRequestType> for SecurityTokenRequestType {
         }
     }
 }
+
+crate::impl_codec_p!(SecurityTokenRequestType);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NodeAttributesMask {

@@ -13,10 +13,12 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct ChannelSecurityToken {
     pub channel_id: u32,
     pub token_id: u32,
+    #[extractable_ignore]
     pub created_at: DateTime,
     pub revised_lifetime: u32,
 }
@@ -61,3 +63,4 @@ impl BinaryEncoder<ChannelSecurityToken> for ChannelSecurityToken {
         })
     }
 }
+crate::impl_codec_p!(ChannelSecurityToken);

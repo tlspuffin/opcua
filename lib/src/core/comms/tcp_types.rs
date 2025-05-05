@@ -6,19 +6,24 @@
 
 use std::io::{Cursor, Error, ErrorKind, Read, Result, Write};
 
+use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     encoding::*, service_types::EndpointDescription, status_code::StatusCode, string::UAString,
 };
 
 use super::url::url_matches_except_host;
 
+use extractable_macro::Extractable;
+//use puffin::error::Error;
+
 pub const CHUNK_MESSAGE: &[u8] = b"MSG";
 pub const OPEN_SECURE_CHANNEL_MESSAGE: &[u8] = b"OPN";
 pub const CLOSE_SECURE_CHANNEL_MESSAGE: &[u8] = b"CLO";
 
-const HELLO_MESSAGE: &[u8] = b"HEL";
-const ACKNOWLEDGE_MESSAGE: &[u8] = b"ACK";
-const ERROR_MESSAGE: &[u8] = b"ERR";
+pub const HELLO_MESSAGE: &[u8] = b"HEL";
+pub const ACKNOWLEDGE_MESSAGE: &[u8] = b"ACK";
+pub const ERROR_MESSAGE: &[u8] = b"ERR";
+pub const REVERSE_HELLO_MESSAGE: &[u8] = b"RHE";
 
 pub const CHUNK_FINAL: u8 = b'F';
 pub const CHUNK_INTERMEDIATE: u8 = b'C';
@@ -37,11 +42,15 @@ pub enum MessageType {
     Acknowledge,
     Chunk,
     Error,
+    Reverse
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct MessageHeader {
+    #[extractable_ignore]
     pub message_type: MessageType,
+    #[extractable_ignore]
     pub message_size: u32,
 }
 
@@ -56,6 +65,7 @@ impl BinaryEncoder<MessageHeader> for MessageHeader {
             MessageType::Hello => stream.write(HELLO_MESSAGE),
             MessageType::Acknowledge => stream.write(ACKNOWLEDGE_MESSAGE),
             MessageType::Error => stream.write(ERROR_MESSAGE),
+            MessageType::Reverse => stream.write(REVERSE_HELLO_MESSAGE),
             MessageType::Chunk => {
                 panic!("Don't write chunks to stream with this call, use Chunk and Chunker");
             }
@@ -79,6 +89,7 @@ impl BinaryEncoder<MessageHeader> for MessageHeader {
         })
     }
 }
+crate::impl_codec_p!(MessageHeader);
 
 impl MessageHeader {
     pub fn new(message_type: MessageType) -> MessageHeader {
@@ -144,6 +155,7 @@ impl MessageHeader {
                 HELLO_MESSAGE => MessageType::Hello,
                 ACKNOWLEDGE_MESSAGE => MessageType::Acknowledge,
                 ERROR_MESSAGE => MessageType::Error,
+                REVERSE_HELLO_MESSAGE => MessageType::Reverse,
                 CHUNK_MESSAGE | OPEN_SECURE_CHANNEL_MESSAGE | CLOSE_SECURE_CHANNEL_MESSAGE => {
                     MessageType::Chunk
                 }
@@ -171,7 +183,8 @@ impl MessageHeader {
 }
 
 /// Implementation of the HEL message in OPC UA
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct HelloMessage {
     pub message_header: MessageHeader,
     pub protocol_version: u32,
@@ -219,6 +232,7 @@ impl BinaryEncoder<HelloMessage> for HelloMessage {
         })
     }
 }
+crate::impl_codec_p!(HelloMessage);
 
 impl HelloMessage {
     const MAX_URL_LEN: usize = 4096;
@@ -280,7 +294,8 @@ impl HelloMessage {
 }
 
 /// Implementation of the ACK message in OPC UA
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct AcknowledgeMessage {
     pub message_header: MessageHeader,
     pub protocol_version: u32,
@@ -323,9 +338,11 @@ impl BinaryEncoder<AcknowledgeMessage> for AcknowledgeMessage {
         })
     }
 }
+crate::impl_codec_p!(AcknowledgeMessage);
 
 /// Implementation of the ERR message in OPC UA
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct ErrorMessage {
     pub message_header: MessageHeader,
     pub error: u32,
@@ -356,6 +373,7 @@ impl BinaryEncoder<ErrorMessage> for ErrorMessage {
         })
     }
 }
+crate::impl_codec_p!(ErrorMessage);
 
 impl ErrorMessage {
     pub fn from_status_code(status_code: StatusCode) -> ErrorMessage {
@@ -367,4 +385,84 @@ impl ErrorMessage {
         error.message_header.message_size = error.byte_len() as u32;
         error
     }
+}
+
+// Implementation of the RHE message in OPC UA
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
+pub struct ReverseHelloMessage {
+    pub message_header: MessageHeader,
+    pub server_uri: UAString,
+    pub endpoint_url: UAString,
+}
+
+impl BinaryEncoder<ReverseHelloMessage> for ReverseHelloMessage {
+    fn byte_len(&self) -> usize {
+        self.message_header.byte_len() +
+        self.server_uri.byte_len() +
+        self.endpoint_url.byte_len()
+    }
+
+    fn encode<S: Write>(&self, stream: &mut S) -> EncodingResult<usize> {
+        let mut size = 0;
+        size += self.message_header.encode(stream)?;
+        size += self.server_uri.encode(stream)?;
+        size += self.endpoint_url.encode(stream)?;
+        Ok(size)
+    }
+
+    fn decode<S: Read>(stream: &mut S, decoding_options: &DecodingOptions) -> EncodingResult<Self> {
+        let message_header = MessageHeader::decode(stream, decoding_options)?;
+        let server_uri = UAString::decode(stream, decoding_options)?;
+        let endpoint_url = UAString::decode(stream, decoding_options)?;
+        Ok(ReverseHelloMessage {
+            message_header,
+            server_uri,
+            endpoint_url,
+        })
+    }
+}
+crate::impl_codec_p!(ReverseHelloMessage);
+
+impl ReverseHelloMessage {
+
+    /// Creates a RHE message
+    pub fn new(
+        server_uri: &str,
+        endpoint_url: &str,
+    ) -> ReverseHelloMessage {
+        let mut msg = ReverseHelloMessage {
+            message_header: MessageHeader::new(MessageType::Reverse),
+            server_uri: UAString::from(server_uri),
+            endpoint_url: UAString::from(endpoint_url),
+        };
+        msg.message_header.message_size = msg.byte_len() as u32;
+        msg
+    }
+
+    pub fn is_valid_length(&self) -> bool {
+        if let Some(ref server_uri) = self.server_uri.value() {
+            if server_uri.len() > HelloMessage::MAX_URL_LEN {
+                error!("Reverse Hello contains a server URI that exceeds maximum length");
+                return false
+            }
+        } else {
+            error!("Reverse Hello message contains no server URI");
+            return false
+        }
+        if let Some(ref endpoint_url) = self.endpoint_url.value() {
+            if endpoint_url.len() > HelloMessage::MAX_URL_LEN {
+                error!("Reverse Hello contains an endpoint URL that exceeds maximum length");
+                return false
+            }
+        } else {
+            error!("Reverse Hello message contains no endpoint URL");
+            return false
+        }
+        true
+    }
+
+    // TODO:
+    //  check server URI and endpoint URL
+
 }

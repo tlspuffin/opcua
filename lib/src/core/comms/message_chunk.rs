@@ -7,6 +7,7 @@
 
 use std::io::{Cursor, Read, Write};
 
+use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{status_code::StatusCode, *};
 
 use super::{
@@ -20,6 +21,8 @@ use super::{
         CLOSE_SECURE_CHANNEL_MESSAGE, MIN_CHUNK_SIZE, OPEN_SECURE_CHANNEL_MESSAGE,
     },
 };
+
+use extractable_macro::Extractable;
 
 /// The size of a chunk header, used by several places
 pub const MESSAGE_CHUNK_HEADER_SIZE: usize = 12;
@@ -47,13 +50,17 @@ pub enum MessageIsFinalType {
     FinalError,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct MessageChunkHeader {
     /// The kind of chunk - message, open or close
+    #[extractable_ignore]
     pub message_type: MessageChunkType,
     /// The chunk type - C == intermediate, F = the final chunk, A = the final chunk when aborting
+    #[extractable_ignore]
     pub is_final: MessageIsFinalType,
     /// The size of the chunk (message) including the header
+    #[extractable_ignore]
     pub message_size: u32,
     /// Secure channel id
     pub secure_channel_id: u32,
@@ -122,13 +129,14 @@ impl BinaryEncoder<MessageChunkHeader> for MessageChunkHeader {
         })
     }
 }
+crate::impl_codec_p!(MessageChunkHeader);
 
 impl MessageChunkHeader {}
 
 /// A chunk holds a message or a portion of a message, if the message has been split into multiple chunks.
 /// The chunk's data may be signed and encrypted. To extract the message requires all the chunks
 /// to be available in sequence so they can be formed back into the message.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MessageChunk {
     /// All of the chunk's data including headers, payload, padding, signature
     pub data: Vec<u8>,
@@ -181,6 +189,7 @@ impl BinaryEncoder<MessageChunk> for MessageChunk {
         }
     }
 }
+crate::impl_codec_p!(MessageChunk);
 
 impl MessageChunk {
     pub fn new(
