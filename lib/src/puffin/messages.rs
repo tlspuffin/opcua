@@ -1,4 +1,4 @@
-use crate::core::comms::tcp_codec::{Message};
+use crate::core::comms::tcp_codec::Message;
 use crate::core::comms::tcp_types::{
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
     HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE,
@@ -105,6 +105,19 @@ impl OpaqueProtocolMessage<OpcuaProtocolTypes> for Message {
     }
 }
 
+// /!\ a ServiceMessage may be encoded as a MessageFlight and not
+//     only as a single message.
+impl ProtocolMessage<OpcuaProtocolTypes, Message> for Message {
+    fn create_opaque(&self) -> Message {
+        self.clone()
+    }
+
+    fn debug(&self, _info: &str) {
+        panic!("Not implemented for test stub");
+    }
+}
+
+
 /**
 The enum type [`crate::core::supported_message::SupportedMessage`] defines all [`ProtocolMessage`],
 i.e. all possible OPC UA service requests before security is applied to them,
@@ -131,18 +144,6 @@ impl Codec for ServiceMessage {
     }
 
     fn read(_rd: &mut Reader) -> Option<Self> {
-        panic!("Not implemented for test stub");
-    }
-}
-
-// /!\ a ServiceMessage may be encoded as a MessageFlight and not
-//     only as a single message.
-impl ProtocolMessage<OpcuaProtocolTypes, Message> for ServiceMessage {
-    fn create_opaque(&self) -> Message {
-        panic!("Not implemented for test stub");
-    }
-
-    fn debug(&self, _info: &str) {
         panic!("Not implemented for test stub");
     }
 }
@@ -265,41 +266,19 @@ impl ProtocolMessageDeframer<OpcuaProtocolTypes> for MessageDeframer {
     }
 }
 
-// Should not be useful...
-#[derive(Debug, Clone)]
-pub struct ServiceMessageFlight {
-   pub messages: Vec<ServiceMessage>
-}
-
-impl ProtocolMessageFlight<OpcuaProtocolTypes, ServiceMessage, Message, MessageFlight>
-    for ServiceMessageFlight
+impl ProtocolMessageFlight<OpcuaProtocolTypes, Message, Message, MessageFlight>
+    for MessageFlight
 {
     fn new() -> Self {
         Self { messages: vec![] }
     }
 
-    fn push(&mut self, msg: ServiceMessage) {
+    fn push(&mut self, msg: Message) {
         self.messages.push(msg);
     }
 
     fn debug(&self, _info: &str) {
         panic!("Not implemented for test stub");
-    }
-}
-
-impl TryFrom<MessageFlight> for ServiceMessageFlight {
-    type Error = ();
-
-    fn try_from(_value: MessageFlight) -> Result<Self, Self::Error> {
-        Ok(Self{ messages: vec![]})
-    }
-}
-
-dummy_extract_knowledge_codec!(OpcuaProtocolTypes, ServiceMessageFlight);
-
-impl From<ServiceMessage> for ServiceMessageFlight {
-    fn from(value: ServiceMessage) -> Self {
-        Self{ messages: vec![value] }
     }
 }
 
@@ -352,11 +331,11 @@ impl Codec for MessageFlight {
 
     fn read(reader: &mut codec::Reader) -> Option<Self> {
         let mut deframer = MessageDeframer::new();
-        let mut flight = Self::new();
+        let mut flight = <MessageFlight as OpaqueProtocolMessageFlight<OpcuaProtocolTypes, Message>>::new();
 
         let _ = deframer.read(&mut reader.rest());
         while let Some(msg) = deframer.pop_frame() {
-            flight.push(msg);
+            OpaqueProtocolMessageFlight::push(&mut flight, msg);
             // continue to read the buffer
             let _ = deframer.read(&mut reader.rest());
         }
@@ -365,8 +344,3 @@ impl Codec for MessageFlight {
     }
 }
 
-impl From<ServiceMessageFlight> for MessageFlight {
-    fn from(_value: ServiceMessageFlight) -> Self {
-        panic!("Not implemented for test stub");
-    }
-}
