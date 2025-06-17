@@ -5,13 +5,15 @@ use serde::{Deserialize, Serialize};
 /// This is currently a dummy implementation
 #[derive(Debug, Deserialize, Serialize, Clone, Copy, Hash, Eq, PartialEq)]
 pub enum OpcuaQueryMatcher {
-    Alert,
+    Error,
+    Open,
 }
 
 impl Matcher for OpcuaQueryMatcher {
     fn matches(&self, matcher: &OpcuaQueryMatcher) -> bool {
         match matcher {
-            OpcuaQueryMatcher::Alert => matches!(self, OpcuaQueryMatcher::Alert),
+            OpcuaQueryMatcher::Error => matches!(self, OpcuaQueryMatcher::Error),
+            OpcuaQueryMatcher::Open => matches!(self, OpcuaQueryMatcher::Open),
         }
     }
 

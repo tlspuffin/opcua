@@ -22,14 +22,14 @@ pub mod fn_impl {
 /// UA TCP client Hello message
 pub fn fn_hello (
     endpoint_url: &String,
-    send_buffer_size: &usize,
-    receive_buffer_size: &usize
+    send_buffer_size: &u32,
+    receive_buffer_size: &u32
 ) -> Result<HelloMessage, FnError> {
     let mut msg = HelloMessage {
         message_header: MessageHeader::new(MessageType::Hello),
         protocol_version: 0,
-        send_buffer_size: *send_buffer_size as u32,
-        receive_buffer_size: *receive_buffer_size as u32,
+        send_buffer_size: *send_buffer_size,
+        receive_buffer_size: *receive_buffer_size,
         max_message_size: 0,  // 0: Client has no limit
         max_chunk_count: 0,   // 0: Client has no limit
         endpoint_url: UAString::from(endpoint_url)
@@ -180,6 +180,7 @@ define_signature! {
     fn_seq_0
     fn_sa_token
     fn_default_size
+    //fn_simulation_server
 
     // messages
     fn_hello
