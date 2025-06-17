@@ -1,9 +1,7 @@
-use extractable_macro::Extractable;
 use fn_impl::*;
 use puffin::algebra::dynamic_function::FunctionAttributes;
 use puffin::algebra::error::FnError;
-use puffin::error::Error;
-use puffin::{codec, define_signature, dummy_codec};
+use puffin::define_signature;
 use crate::prelude::{ByteString, MessageType};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
@@ -113,6 +111,40 @@ pub fn fn_open_channel_request(
     })
 }
 
+// pub fn fn_new_secure_channel(
+//     role: &Role,
+//     security_mode: &MessageSecurityMode,
+
+// ) -> Result<SecureChannel, FnError> {
+//     Ok(SecureChannel {
+//         role,
+//         security_policy: SecurityPolicy::Basic256Sha256,
+//         security_mode,
+//         secure_channel_id: 0,
+//         token_created_at: DateTime::default(),
+//         token_lifetime: 0,
+//         token_id: 0,
+//         /// Our certificate
+//         cert: Option<X509>,
+//         /// Our private key
+//         private_key: Option<PrivateKey>,
+//         /// Their certificate
+//         remote_cert: Option<X509>,
+//         /// Their nonce provided by open secure channel
+//         remote_nonce: Vec<u8>,
+//         /// Our nonce generated while handling open secure channel
+//         local_nonce: Vec<u8>,
+//         /// Client (i.e. other end's set of keys) Symmetric Signing Key, Encrypt Key, IV
+//         remote_keys: None, //Option<(Vec<u8>, AesKey, Vec<u8>)>,
+//         /// Server (i.e. our end's set of keys) Symmetric Signing Key, Decrypt Key, IV
+//         local_keys: None, //Option<(Vec<u8>, AesKey, Vec<u8>)>,
+//         /// Decoding options
+//         decoding_options: DecodingOptions,
+
+
+//     })
+// }
+
 // /!\ The SA Token is an UInt32 identifier for a NodeId!
 pub fn fn_sa_token(v: &u32) -> Result<NodeId, FnError> {
     Ok(NodeId {
@@ -147,6 +179,7 @@ define_signature! {
     fn_encrypt
     fn_seq_0
     fn_sa_token
+    fn_default_size
 
     // messages
     fn_hello

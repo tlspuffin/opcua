@@ -10,16 +10,14 @@ use crate::types::encoding::read_u32;
 
 use extractable_macro::Extractable;
 use puffin::codec::{Codec, CodecP, Reader};
-use puffin::error::Error;
+// use puffin::error::Error;
 use puffin::protocol::{
-    Extractable, OpaqueProtocolMessage, OpaqueProtocolMessageFlight, ProtocolMessage,
-    ProtocolMessageDeframer, ProtocolMessageFlight, ProtocolTypes,
-};
-use puffin::trace::{Knowledge, Source};
-use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec};
+    OpaqueProtocolMessage, OpaqueProtocolMessageFlight, ProtocolMessage,
+    ProtocolMessageDeframer, ProtocolMessageFlight};
+// use puffin::trace::{Knowledge, Source};
+use puffin::codec;
 
 use std::collections::VecDeque;
-use std::convert::TryFrom;
 //use std::fmt;
 use std::io;
 use std::io::Read;
