@@ -42,6 +42,6 @@ pub fn fn_default_size() -> Result<u32, FnError> {
 // - add client and server certificates
 // - security profiles
 
-pub fn fn_simulation_server() -> Result<String, FnError> {
-    Ok(String::from("opc.tcp://PenDuick:53530/OPCUA/SimulationServer"))
+pub fn fn_simulation_server() -> Result<Vec<u8>, FnError> {
+    Ok("opc.tcp://PenDuick:53530/OPCUA/SimulationServer".as_bytes().to_vec())
 }
