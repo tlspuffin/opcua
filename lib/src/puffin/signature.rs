@@ -6,7 +6,7 @@ use crate::prelude::{ByteString, MessageType};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{
-    AcknowledgeMessage, DiagnosticBits, ErrorMessage, ExtensionObject, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, NodeId, 
+    AcknowledgeMessage, DiagnosticBits, ErrorMessage, ExtensionObject, HelloMessage, MessageHeader, MessageSecurityMode, NodeId, 
     OpenSecureChannelRequest, ReverseHelloMessage, RequestHeader, SecurityTokenRequestType, UAString, UtcTime
 };
 
@@ -19,8 +19,24 @@ pub mod fn_impl {
 }
 
 
-/// UA TCP client Hello message
-pub fn fn_hello (
+/// UA TCP sub-protocol:
+
+/// Reverse Hello
+pub fn fn_server_hello (
+    server_uri:  &Vec<u8>,
+    endpoint_url: &Vec<u8>,
+) -> Result<ReverseHelloMessage, FnError> {
+    let mut msg = ReverseHelloMessage {
+        message_header: MessageHeader::new(MessageType::Reverse),
+        server_uri: UAString::from(String::from_utf8_lossy(server_uri).as_ref()),
+        endpoint_url: UAString::from(String::from_utf8_lossy(&endpoint_url).as_ref())
+    };
+    msg.message_header.message_size = msg.byte_len() as u32;
+    Ok(msg)
+}
+
+/// Hello
+pub fn fn_client_hello (
     endpoint_url: &Vec<u8>,
     send_buffer_size: &u32,
     receive_buffer_size: &u32
@@ -38,7 +54,7 @@ pub fn fn_hello (
     Ok(msg)
 }
 
-/// UA TCP server response to Hello message
+/// Acknowledge
 pub fn fn_acknowledge (
     receive_buffer_size: &u32,
     send_buffer_size: &u32,
@@ -55,10 +71,10 @@ pub fn fn_acknowledge (
     Ok(msg)
 }
 
-/// UA TCP Error message
+/// Error
 pub fn fn_error (
-   reason: &String,
-   error_code: &u32
+    error_code: &u32,
+    reason: &String
 ) -> Result<ErrorMessage, FnError> {
     let mut msg = ErrorMessage {
         message_header: MessageHeader::new(MessageType::Error),
@@ -69,19 +85,14 @@ pub fn fn_error (
     Ok(msg)
 }
 
-/// UA TCP server Reverse Hello message
-pub fn fn_reverse_hello (
-    server_uri: &String,
-    endpoint_url: &String,
-) -> Result<ReverseHelloMessage, FnError> {
-    let mut msg = ReverseHelloMessage {
-        message_header: MessageHeader::new(MessageType::Reverse),
-        server_uri: UAString::from(server_uri),
-        endpoint_url: UAString::from(endpoint_url)
-    };
-    msg.message_header.message_size = msg.byte_len() as u32;
-    Ok(msg)
-}
+/// UA SC sub-protocol:
+
+// pub fn_message_header (
+//     type: 
+// ) -> Result< , FnError> {
+//     let mut msg: 
+//     ok(msg)
+// }
 
 /*
 From types::service_types::open_secure_channel_request:
@@ -97,15 +108,14 @@ From types::service_types::open_secure_channel_request:
 */
 
 // Since we have not done TODO3, yet, here is a manual constructor function:
-pub fn fn_open_channel_request(
-    security_mode: &MessageSecurityMode,
+pub fn fn_client_open(
     client_nonce: &ByteString
 ) -> Result<OpenSecureChannelRequest, FnError> {
     Ok(OpenSecureChannelRequest {
         request_header: Default::default(),
         client_protocol_version: 0,
         request_type: SecurityTokenRequestType::Issue,
-        security_mode: security_mode.clone(),
+        security_mode: MessageSecurityMode::Sign,
         client_nonce: client_nonce.clone(),
         requested_lifetime: 0,
     })
@@ -145,13 +155,7 @@ pub fn fn_open_channel_request(
 //     })
 // }
 
-// /!\ The SA Token is an UInt32 identifier for a NodeId!
-pub fn fn_sa_token(v: &u32) -> Result<NodeId, FnError> {
-    Ok(NodeId {
-        namespace: 0,
-        identifier: Identifier::from(*v)
-    })
-}
+
 
 pub fn fn_request_header(
     sa_token: &NodeId,
@@ -174,18 +178,30 @@ define_signature! {
     // constants
     fn_true
     fn_false
-    fn_none
-    fn_sign
-    fn_encrypt
-    fn_seq_0
-    fn_sa_token
-    fn_default_size
-    fn_simulation_server
 
-    // messages
-    fn_hello
+    fn_seq_0
+
+    // UA TCP messages:
+    fn_server_hello
+    fn_client_hello
     fn_acknowledge
     fn_error
-    fn_open_channel_request
+
+    fn_default_size
+    fn_size_8192
+    fn_bob_uri
+    fn_bob_endpoint
+
+
+    // UA SC messages:
+    //fn_message_header
+    fn_client_open
+
+    fn_issue
+    fn_renew
+
     fn_request_header
+
+    fn_sa_token_zero
+
 }
