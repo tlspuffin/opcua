@@ -85,15 +85,11 @@ impl OpcuaDescriptorConfig {
 
     pub fn new_client(
         name: AgentName,
-        mode: ChannelMode,
-        utoken: UserToken,
     ) -> AgentDescriptor<Self> {
         AgentDescriptor {
             name,
             protocol_config: OpcuaDescriptorConfig {
                 kind: AgentType::Client,
-                mode,
-                utoken,
                 ..Self::default()
             }
         }
@@ -101,15 +97,11 @@ impl OpcuaDescriptorConfig {
 
     pub fn new_server(
         name: AgentName,
-        mode: ChannelMode,
-        utoken: UserToken,
     ) -> AgentDescriptor<Self> {
         AgentDescriptor {
             name,
             protocol_config: OpcuaDescriptorConfig {
                 kind: AgentType::Server,
-                mode,
-                utoken,
                 ..Self::default()
             }
         }
