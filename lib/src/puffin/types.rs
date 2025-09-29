@@ -3,6 +3,7 @@
 use puffin::agent::{AgentDescriptor, AgentName, ProtocolDescriptorConfig};
 use puffin::algebra::signature::Signature;
 use puffin::{atom_extract_knowledge, dummy_extract_knowledge};
+use puffin::algebra::AnyMatcher;
 use puffin::error::Error;
 use puffin::trace::{Knowledge, Source};
 
@@ -17,7 +18,6 @@ use puffin::protocol::{
 //use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec};
 use serde::{Deserialize, Serialize};
 
-use crate::puffin::query::OpcuaQueryMatcher;
 use crate::puffin::signature::OPCUA_SIGNATURE;
 
 // PUT configuration descriptor:
@@ -114,15 +114,13 @@ impl ProtocolDescriptorConfig for OpcuaDescriptorConfig {
     }
 }
 
-
-
 // Protocol Types:
 
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct OpcuaProtocolTypes;
 
 impl ProtocolTypes for OpcuaProtocolTypes {
-    type Matcher = OpcuaQueryMatcher;
+    type Matcher = AnyMatcher; // OpcuaQueryMatcher;
     type PUTConfig = OpcuaDescriptorConfig;
 
     fn signature() -> &'static Signature<Self> {
