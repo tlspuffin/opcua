@@ -47,8 +47,8 @@ pub enum ChannelMode {
 pub enum SessionSecurity {
     /// No Application Authentication, i.e. the server is configured
     /// to accept all client certificates and only use them for message security.
-    SNoAA,
-    SSec, // Client Application Authentication
+    SNoAA, // No client Application Authentication
+    SSec,  // Normal Session Security
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
@@ -66,6 +66,7 @@ pub struct OpcuaDescriptorConfig {
     pub mode: ChannelMode,
     pub check: SessionSecurity, /// Default: SSec.
     pub utoken: UserToken,
+    pub tcp_port: u32,
 }
 
 impl Default for OpcuaDescriptorConfig {
@@ -77,6 +78,7 @@ impl Default for OpcuaDescriptorConfig {
             mode: ChannelMode::Sign,
             check: SessionSecurity::SSec,
             utoken: UserToken::Certificate,
+            tcp_port: 4840,
         }
     }
 }
