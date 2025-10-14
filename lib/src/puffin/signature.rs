@@ -181,6 +181,11 @@ define_signature! {
 
     fn_seq_0
 
+    fn_alice_cert
+    fn_bob_cert
+    fn_mallory_cert
+    fn_oscar_cert
+
     // UA TCP messages:
     fn_server_hello
     fn_client_hello

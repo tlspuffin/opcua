@@ -66,7 +66,7 @@ pub struct OpcuaDescriptorConfig {
     pub mode: ChannelMode,
     pub check: SessionSecurity, /// Default: SSec.
     pub utoken: UserToken,
-    pub tcp_port: u32,
+    pub tcp_port: u16,
 }
 
 impl Default for OpcuaDescriptorConfig {
@@ -102,10 +102,7 @@ impl OpcuaDescriptorConfig {
     ) -> AgentDescriptor<Self> {
         AgentDescriptor {
             name,
-            protocol_config: OpcuaDescriptorConfig {
-                kind: AgentType::Server,
-                ..Self::default()
-            }
+            protocol_config: Self::default()
         }
     }
 }

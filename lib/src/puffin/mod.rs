@@ -4,3 +4,4 @@ pub mod signature;
 pub mod types;
 pub mod violations;
 mod codec;
+pub mod static_certs;

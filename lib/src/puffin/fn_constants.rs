@@ -3,7 +3,10 @@
 use puffin::algebra::error::FnError;
 
 use crate::core::comms::secure_channel::Role;
-use crate::types::{Identifier, SecurityTokenRequestType, NodeId};
+use crate::puffin::static_certs::{
+    ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
+    MALLORY_PRIVATE_KEY, MALLORY_CERTIFICATE, OSCAR_PRIVATE_KEY, OSCAR_CERTIFICATE};
+use crate::types::{ByteString, Identifier, NodeId, SecurityTokenRequestType};
 
 pub fn fn_true() -> Result<bool, FnError> {
     Ok(true)
@@ -64,6 +67,27 @@ pub fn fn_sa_token_zero() -> Result<NodeId, FnError> {
         identifier: Identifier::from(0)
     })
 }
+
+// Certificates:
+
+pub fn fn_alice_cert() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(ALICE_CERTIFICATE.1.to_vec())})
+}
+
+pub fn fn_bob_cert() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(BOB_CERTIFICATE.1.to_vec())})
+}
+
+pub fn fn_mallory_cert() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(MALLORY_CERTIFICATE.1.to_vec())})
+}
+
+pub fn fn_oscar_cert() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(OSCAR_CERTIFICATE.1.to_vec())})
+}
+
+// Private keys:
+
 
 
 
