@@ -66,7 +66,6 @@ pub struct OpcuaDescriptorConfig {
     pub mode: ChannelMode,
     pub check: SessionSecurity, /// Default: SSec.
     pub utoken: UserToken,
-    pub tcp_port: u16,
 }
 
 impl Default for OpcuaDescriptorConfig {
@@ -78,7 +77,6 @@ impl Default for OpcuaDescriptorConfig {
             mode: ChannelMode::Sign,
             check: SessionSecurity::SSec,
             utoken: UserToken::Certificate,
-            tcp_port: 4840,
         }
     }
 }

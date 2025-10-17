@@ -52,11 +52,11 @@ pub fn fn_size_8192() -> Result<u32, FnError> {
 }
 
 pub fn fn_bob_uri() -> Result<Vec<u8>, FnError> {
-    Ok("opc.tcp://PenDuick:53530".as_bytes().to_vec())
+    Ok("opc.tcp://127.0.0.1:4840".as_bytes().to_vec())
 }
 
 pub fn fn_bob_endpoint() -> Result<Vec<u8>, FnError> {
-    Ok("opc.tcp://PenDuick:53530/OPCUA/SimulationServer".as_bytes().to_vec())
+    Ok("opc.tcp://localhost:4840/bob_server".as_bytes().to_vec())
 }
 
 /// Various constants:
