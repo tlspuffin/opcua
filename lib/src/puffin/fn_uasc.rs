@@ -4,124 +4,81 @@ use std::io::{Read, Write};
 
 use puffin::algebra::error::FnError;
 
-use crate::core::comms::tcp_types::{
-    CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
-    CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
-use crate::prelude::{DecodingOptions, EncodingResult, MessageChunk};
+use crate::crypto::SecurityPolicy;
+use crate::prelude::{AsymmetricSecurityHeader, DecodingOptions, EncodingResult, MessageChunk,
+   MessageChunkHeader, MessageChunkType, MessageIsFinalType, SecurityHeader, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
-use crate::types::{StatusCode, process_decode_io_result, process_encode_io_result, status_code, write_u8};
-
-use extractable_macro::Extractable;
-
-/// Size in bytes of an OPC UA secure channel message header
-const UASC_HEADER_LEN: usize = 3*4;
-
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum ChunkType {
-    Open,
-    Intermediate,
-    Final,
-    FinalError,
-    Close
-}
-
-#[derive(Debug, Clone, PartialEq, Extractable)]
-#[extractable(OpcuaProtocolTypes)]
-pub struct ChunkHeader{
-    #[extractable_ignore]
-    chunk_type: ChunkType,
-    #[extractable_ignore]
-    message_size: u32,
-    secure_channel_id: u32,
-}
-
+use crate::types::{ByteString, StatusCode, UAString,
+    process_decode_io_result, process_encode_io_result, write_u8};
 
 pub fn fn_chunk_header (
-    chunk_type: &ChunkType,
+    message_type: &MessageChunkType,
+    is_final: &MessageIsFinalType,
     secure_channel_id: &u32
-) -> Result<ChunkHeader, FnError> {
-    Ok(ChunkHeader{
-        chunk_type: chunk_type.clone(),
-        secure_channel_id: *secure_channel_id,
-        message_size: 0
+) -> Result<MessageChunkHeader, FnError> {
+    Ok(MessageChunkHeader{
+        message_type: message_type.clone(),
+        is_final: is_final.clone(),
+        message_size: 0,
+        secure_channel_id: *secure_channel_id
     })
 }
 
-impl BinaryEncoder<ChunkHeader> for ChunkHeader {
-    fn byte_len(&self) -> usize {
-        UASC_HEADER_LEN
-    }
-
-    fn encode<S: Write>(&self, stream: &mut S) -> EncodingResult<usize> {
-        let mut size = 0;
-        let result = match self.chunk_type {
-            ChunkType::Open =>
-               stream.write(OPEN_SECURE_CHANNEL_MESSAGE),
-            ChunkType::Intermediate | ChunkType::Final | ChunkType::FinalError =>
-               stream.write(CHUNK_MESSAGE),
-            ChunkType::Close =>
-               stream.write(CLOSE_SECURE_CHANNEL_MESSAGE),
-
-        };
-        size += process_encode_io_result(result)?;
-        size += match self.chunk_type {
-            ChunkType::Open | ChunkType::Final | ChunkType::Close =>
-               write_u8(stream, CHUNK_FINAL)?,
-            ChunkType::Intermediate =>
-               write_u8(stream, CHUNK_INTERMEDIATE)?,
-            ChunkType::FinalError =>
-               write_u8(stream, CHUNK_FINAL_ERROR)?,
-        };
-        size += self.secure_channel_id.encode(stream)?;
-        size += self.message_size.encode(stream)?;
-        Ok(size)
-    }
-
-    fn decode<S: Read>(stream: &mut S, decoding_options: &DecodingOptions) -> EncodingResult<ChunkHeader> {
-
-        let mut header = [0u8; 4];
-        let result = stream.read_exact(&mut header);
-        process_decode_io_result(result)?;
-
-        let chunk_type = match &header[0..3] {
-            OPEN_SECURE_CHANNEL_MESSAGE => ChunkType::Open,
-            CLOSE_SECURE_CHANNEL_MESSAGE => ChunkType::Close,
-            CHUNK_MESSAGE =>
-                match header[3] {
-                    CHUNK_INTERMEDIATE => ChunkType::Intermediate,
-                    CHUNK_FINAL => ChunkType::Final,
-                    CHUNK_FINAL_ERROR => ChunkType::FinalError,
-                    _ => return Err(StatusCode::BadDecodingError)
-                },
-            _ => return Err(StatusCode::BadDecodingError)
-
-        };
-        let message_size = u32::decode(stream, decoding_options)?;
-        let secure_channel_id = u32::decode(stream, decoding_options)?;
-
-        Ok(ChunkHeader {
-            chunk_type,
-            message_size,
-            secure_channel_id
-        })
-    }
+pub fn fn_asymmetric_security_header(
+    security_policy_uri: &Vec<u8>,
+    sender_certificate: &Vec<u8>,
+    receiver_certificate_thumbprint: &Vec<u8>
+) -> Result<AsymmetricSecurityHeader, FnError> {
+    Ok(AsymmetricSecurityHeader {
+        security_policy_uri: UAString::from(String::from_utf8_lossy(security_policy_uri).as_ref()),
+        sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+        receiver_certificate_thumbprint: ByteString{value: Some(receiver_certificate_thumbprint.clone())}
+    })
 }
-crate::impl_codec_p!(ChunkHeader);
 
+pub fn fn_sequence_header(
+    sequence_number: &u32,
+    request_id: &u32,
+) -> Result<SequenceHeader, FnError> {
+    Ok(SequenceHeader {
+        sequence_number: *sequence_number,
+        request_id: *request_id
+    })
+}
+
+pub fn fn_data_to_sign(
+    security: &Vec<u8>,
+    sequence: &SequenceHeader,
+    request: &Vec<u8>
+ ) -> Result<Vec<u8>, FnError> {
+    let mut buffer= Vec::<u8>::new();
+    buffer.extend_from_slice(security);
+    let _ = sequence.encode(&mut buffer);
+    buffer.extend_from_slice(request);
+    Ok(buffer)
+ }
+
+pub fn fn_sign (
+    chunk_header: &MessageChunkHeader,
+    data: &Vec<u8>,
+    policy: &SecurityPolicy,
+    private_key: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+    Ok(vec![1,2,3])
+}
 
 pub fn fn_chunk (
-    header: &ChunkHeader,
-    //security: &Vec<u8>,
-    //body: &Vec<u8>,
+    header: &MessageChunkHeader,
+    security: &Vec<u8>,
+    body: &Vec<u8>,
 ) -> Result<MessageChunk, FnError> {
-    let mut buffer:Vec<u8> = Vec::<u8>::new();
+    let mut buffer= Vec::<u8>::new();
     let result = header.encode(&mut buffer);
     if let Err(_) = result {
         return Err(FnError::Codec("Error while encoding chunk header".to_string()))
     }
-    //buffer.extend_from_slice(security);
-    //buffer.extend_from_slice(body);
+    buffer.extend_from_slice(security);
+    buffer.extend_from_slice(body);
     Ok(MessageChunk {data: buffer})
 }

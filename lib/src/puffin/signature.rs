@@ -194,6 +194,8 @@ define_signature! {
 
     // UA SC messages:
     fn_chunk_header
+    fn_asymmetric_security_header
+    fn_sequence_header
     fn_chunk
 
     fn_client_open
