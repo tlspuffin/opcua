@@ -14,7 +14,6 @@ use crate::types::{
 use super::url::url_matches_except_host;
 
 use extractable_macro::Extractable;
-//use puffin::error::Error;
 
 pub const CHUNK_MESSAGE: &[u8] = b"MSG";
 pub const OPEN_SECURE_CHANNEL_MESSAGE: &[u8] = b"OPN";

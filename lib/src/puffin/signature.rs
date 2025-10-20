@@ -14,8 +14,10 @@ use crate::types::{
 #[path = "."]
 pub mod fn_impl {
     pub mod fn_constants;
-
     pub use fn_constants::*;
+
+    pub mod fn_uasc;
+    pub use fn_uasc::*;
 }
 
 
@@ -85,14 +87,6 @@ pub fn fn_error (
     Ok(msg)
 }
 
-/// UA SC sub-protocol:
-
-// pub fn_message_header (
-//     type: 
-// ) -> Result< , FnError> {
-//     let mut msg: 
-//     ok(msg)
-// }
 
 /*
 From types::service_types::open_secure_channel_request:
@@ -199,7 +193,9 @@ define_signature! {
 
 
     // UA SC messages:
-    //fn_message_header
+    fn_chunk_header
+    fn_chunk
+
     fn_client_open
 
     fn_issue
