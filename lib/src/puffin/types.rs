@@ -18,6 +18,8 @@ use puffin::protocol::{
 //use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec};
 use serde::{Deserialize, Serialize};
 
+use crate::crypto::SecurityPolicy;
+use crate::puffin::signature::fn_impl::CipherSuite;
 use crate::puffin::signature::OPCUA_SIGNATURE;
 
 // PUT configuration descriptor:
@@ -62,7 +64,7 @@ pub enum UserToken {
 pub struct OpcuaDescriptorConfig {
     pub version: OpcuaVersion,
     pub kind: AgentType,
-    pub security_policy: String, /// ciphers
+    pub security_policy: CipherSuite,
     pub mode: ChannelMode,
     pub check: SessionSecurity, /// Default: SSec.
     pub utoken: UserToken,
@@ -73,7 +75,7 @@ impl Default for OpcuaDescriptorConfig {
         Self {
             version: OpcuaVersion::V1_4,
             kind: AgentType::Server,
-            security_policy: String::from("Basic256Sha256"),
+            security_policy: CipherSuite::from(SecurityPolicy::Basic256Sha256),
             mode: ChannelMode::Sign,
             check: SessionSecurity::SSec,
             utoken: UserToken::Certificate,
