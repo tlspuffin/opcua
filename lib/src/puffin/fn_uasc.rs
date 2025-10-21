@@ -1,12 +1,13 @@
-// UA SC sub-protocol:
+// symbolic functions for the UA Secure Channel sub-protocol
+
+use openssl::pkey::{Private};
 
 use puffin::algebra::error::FnError;
 use puffin::codec::{CodecP, Reader};
 use puffin::error::Error;
 
-use crate::crypto::SecurityPolicy;
-use crate::prelude::{AsymmetricSecurityHeader, MessageChunk,
-   MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader};
+use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
+use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{ByteString, UAString};
@@ -72,7 +73,6 @@ impl From<SecurityPolicy> for CipherSuite {
     }
 }
 
-
 impl CodecP for CipherSuite {
     fn encode(&self, bytes: &mut Vec<u8>) {
         let uri = UAString::from(CipherSuite::security_policy(*self).to_uri());
@@ -92,15 +92,12 @@ pub fn fn_asymmetric_security_header(
     cipher_suite: &CipherSuite,
     sender_certificate: &Vec<u8>,
     receiver_certificate_thumbprint: &Vec<u8>
-) -> Result<Vec<u8>, FnError> {
-    let header = AsymmetricSecurityHeader {
+) -> Result<AsymmetricSecurityHeader, FnError> {
+    Ok(AsymmetricSecurityHeader {
         security_policy_uri: UAString::from(CipherSuite::security_policy(*cipher_suite).to_uri()),
         sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
         receiver_certificate_thumbprint: ByteString{value: Some(receiver_certificate_thumbprint.clone())}
-    };
-    let mut bytes = Vec::<u8>::new();
-    let _ = CodecP::encode(&header, &mut bytes);
-    Ok(bytes)
+    })
 }
 
 pub fn fn_symmetric_security_header(
@@ -133,24 +130,75 @@ pub fn fn_data_to_sign(
     Ok(buffer)
  }
 
+// helper functions for SIGNATURE:
+
+// This is a complete revrite of SecureChannel::asymmetric_sign_and_encrypt()
+// in crate::core::comms::secure_channel::SecureChannel.
 pub fn fn_sign (
-    policy: &CipherSuite,
     chunk_header: &MessageChunkHeader,
+    cipher_suite: &CipherSuite,
+    sender_certificate: &Vec<u8>,
+    receiver_certificate: &Vec<u8>,
     data: &Vec<u8>,
     private_key: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
+
+    let security_policy = CipherSuite::security_policy(*cipher_suite);
+    let signature_length: usize = {
+        let x509 = X509::from_der(sender_certificate)
+           .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+        x509.public_key().unwrap().size()
+    };
+    let receiver_x509 = X509::from_der(&receiver_certificate)
+       .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+    let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
+
+    // cf. fn calculate_cipher_text_size(&self, data_size: usize, padding: RsaPadding) -> usize
+    let cipher_text_size: usize = {
+        let padding: RsaPadding = security_policy.asymmetric_encryption_padding();
+        //cf. fn plain_text_block_size(&self, padding: RsaPadding) -> usize
+        let plain_text_block_size = match padding {
+            RsaPadding::Pkcs1 => encryption_key_size - 11,
+            RsaPadding::OaepSha1 => encryption_key_size - 42,
+            RsaPadding::OaepSha256 => encryption_key_size - 66,
+            _ => return Err(FnError::Crypto("Unsupported padding".to_string())),
+        };
+        let data_size = data.len() + signature_length;
+        let block_count = if data_size % plain_text_block_size == 0 {
+            data_size / plain_text_block_size
+        } else {
+            (data_size / plain_text_block_size) + 1
+        };
+        let cipher_text_bloc_size = encryption_key_size;
+        block_count * cipher_text_bloc_size
+    };
+
+    // collect data to sign in a buffer:
+    let security_header = AsymmetricSecurityHeader {
+        security_policy_uri: UAString::from(security_policy.to_uri()),
+        sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+        receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
+    };
     let mut header = chunk_header.clone();
-    header.message_size = (data.len() + header.byte_len()) as u32;
+    header.message_size = (header.byte_len() + security_header.byte_len() + cipher_text_size) as u32;
     let mut buffer= Vec::<u8>::new();
     CodecP::encode(&header, &mut buffer);
+    CodecP::encode(&security_header, &mut buffer);
     buffer.extend_from_slice(data);
 
-    let mut signature = Vec::<u8>::new();
-    
+    // compute signature:
+    let signing_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
+       .map(|value|{PrivateKey {value}})
+       .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
+    let signing_key_size = signing_key.size();
+
+    let mut signature = vec![0u8; signing_key_size];
+    security_policy.asymmetric_sign(&signing_key, &buffer, &mut signature)
+       .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
     Ok(signature)
 }
 
-pub fn fn_chunk (
+pub fn fn_message (
     header: &MessageChunkHeader,
     security: &Vec<u8>,
     body: &Vec<u8>,

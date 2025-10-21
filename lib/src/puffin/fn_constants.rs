@@ -3,6 +3,7 @@
 use puffin::algebra::error::FnError;
 
 use crate::core::comms::secure_channel::Role;
+use crate::crypto::PrivateKey;
 use crate::puffin::static_certs::{
     ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
     MALLORY_PRIVATE_KEY, MALLORY_CERTIFICATE, OSCAR_PRIVATE_KEY, OSCAR_CERTIFICATE};
@@ -39,7 +40,6 @@ pub fn fn_renew() -> Result<SecurityTokenRequestType, FnError> {
 pub fn fn_client() -> Result<Role, FnError> {
     Ok(Role::Client)
 }
-
 pub fn fn_server() -> Result<Role, FnError> {
     Ok(Role::Server)
 }
@@ -54,7 +54,6 @@ pub fn fn_size_8192() -> Result<u32, FnError> {
 pub fn fn_bob_uri() -> Result<Vec<u8>, FnError> {
     Ok("opc.tcp://127.0.0.1:4840".as_bytes().to_vec())
 }
-
 pub fn fn_bob_endpoint() -> Result<Vec<u8>, FnError> {
     Ok("opc.tcp://localhost:4840/bob_server".as_bytes().to_vec())
 }
@@ -73,23 +72,29 @@ pub fn fn_sa_token_zero() -> Result<NodeId, FnError> {
 pub fn fn_alice_cert() -> Result<ByteString, FnError> {
     Ok(ByteString{value: Some(ALICE_CERTIFICATE.1.to_vec())})
 }
-
 pub fn fn_bob_cert() -> Result<ByteString, FnError> {
     Ok(ByteString{value: Some(BOB_CERTIFICATE.1.to_vec())})
 }
-
 pub fn fn_mallory_cert() -> Result<ByteString, FnError> {
     Ok(ByteString{value: Some(MALLORY_CERTIFICATE.1.to_vec())})
 }
-
 pub fn fn_oscar_cert() -> Result<ByteString, FnError> {
     Ok(ByteString{value: Some(OSCAR_CERTIFICATE.1.to_vec())})
 }
 
 // Private keys:
-
-
-
+pub fn fn_alice_sk() -> Result<Vec<u8>, FnError> {
+    Ok(ALICE_CERTIFICATE.1.to_vec())
+}
+pub fn fn_bob_sk() -> Result<Vec<u8>, FnError> {
+    Ok(BOB_CERTIFICATE.1.to_vec())
+}
+pub fn fn_mallory_sk() -> Result<Vec<u8>, FnError> {
+    Ok(MALLORY_CERTIFICATE.1.to_vec())
+}
+pub fn fn_oscar_sk() -> Result<Vec<u8>, FnError> {
+    Ok(OSCAR_CERTIFICATE.1.to_vec())
+}
 
 // ToDo:
 // - add client and server certificates

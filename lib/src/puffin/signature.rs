@@ -180,6 +180,11 @@ define_signature! {
     fn_mallory_cert
     fn_oscar_cert
 
+    fn_alice_sk
+    fn_bob_sk
+    fn_mallory_sk
+    fn_oscar_sk
+
     // UA TCP messages:
     fn_server_hello
     fn_client_hello
@@ -199,7 +204,7 @@ define_signature! {
     fn_sequence_header
     fn_data_to_sign
     fn_sign
-    fn_chunk
+    fn_message
 
     fn_client_open
 
