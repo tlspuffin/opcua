@@ -6,7 +6,7 @@ use puffin::algebra::error::FnError;
 use puffin::codec::{CodecP, Reader};
 use puffin::error::Error;
 
-use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
+use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509, security_policy};
 use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
@@ -130,7 +130,41 @@ pub fn fn_data_to_sign(
     Ok(buffer)
  }
 
-// helper functions for SIGNATURE:
+pub fn fn_data_to_encrypt (
+    sequence: &SequenceHeader,
+    request: &Vec<u8>,
+    signature: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+    let mut buffer= Vec::<u8>::new();
+    CodecP::encode(sequence, &mut buffer);
+    buffer.extend_from_slice(request);
+    buffer.extend_from_slice(signature);
+    Ok(buffer)
+}
+
+// helper function copied from crate::comms::secure_channel
+// cf. fn calculate_cipher_text_size(&self, data_size: usize, padding: RsaPadding) -> usize
+fn calculate_cipher_text_size (
+    security_policy: SecurityPolicy,
+    data_size: usize,
+    encryption_key_size: usize
+) -> Result<usize, FnError> {
+    let padding: RsaPadding = security_policy.asymmetric_encryption_padding();
+    //cf. fn plain_text_block_size(&self, padding: RsaPadding) -> usize
+    let plain_text_block_size = match padding {
+        RsaPadding::Pkcs1 => encryption_key_size - 11,
+        RsaPadding::OaepSha1 => encryption_key_size - 42,
+        RsaPadding::OaepSha256 => encryption_key_size - 66,
+        _ => return Err(FnError::Crypto("Unsupported padding".to_string())),
+    };
+    let block_count = if data_size % plain_text_block_size == 0 {
+        data_size / plain_text_block_size
+    } else {
+        (data_size / plain_text_block_size) + 1
+    };
+    let cipher_text_bloc_size = encryption_key_size;
+    Ok(block_count * cipher_text_bloc_size)
+}
 
 // This is a complete revrite of SecureChannel::asymmetric_sign_and_encrypt()
 // in crate::core::comms::secure_channel::SecureChannel.
@@ -153,25 +187,8 @@ pub fn fn_sign (
        .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
     let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
 
-    // cf. fn calculate_cipher_text_size(&self, data_size: usize, padding: RsaPadding) -> usize
-    let cipher_text_size: usize = {
-        let padding: RsaPadding = security_policy.asymmetric_encryption_padding();
-        //cf. fn plain_text_block_size(&self, padding: RsaPadding) -> usize
-        let plain_text_block_size = match padding {
-            RsaPadding::Pkcs1 => encryption_key_size - 11,
-            RsaPadding::OaepSha1 => encryption_key_size - 42,
-            RsaPadding::OaepSha256 => encryption_key_size - 66,
-            _ => return Err(FnError::Crypto("Unsupported padding".to_string())),
-        };
-        let data_size = data.len() + signature_length;
-        let block_count = if data_size % plain_text_block_size == 0 {
-            data_size / plain_text_block_size
-        } else {
-            (data_size / plain_text_block_size) + 1
-        };
-        let cipher_text_bloc_size = encryption_key_size;
-        block_count * cipher_text_bloc_size
-    };
+    let cipher_text_size = calculate_cipher_text_size(
+        security_policy, data.len() + signature_length, encryption_key_size)?;
 
     // collect data to sign in a buffer:
     let security_header = AsymmetricSecurityHeader {
@@ -190,22 +207,61 @@ pub fn fn_sign (
     let signing_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
        .map(|value|{PrivateKey {value}})
        .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
-    let signing_key_size = signing_key.size();
 
-    let mut signature = vec![0u8; signing_key_size];
+    let mut signature = vec![0u8; signature_length];
     security_policy.asymmetric_sign(&signing_key, &buffer, &mut signature)
        .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
     Ok(signature)
 }
 
+
+pub fn fn_asym_encrypt (
+    cipher_suite: &CipherSuite,
+    sender_certificate: &Vec<u8>,
+    receiver_certificate: &Vec<u8>,
+    data: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+
+    let security_policy = CipherSuite::security_policy(*cipher_suite);
+
+    let receiver_x509 = X509::from_der(&receiver_certificate)
+       .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+    let encryption_key= receiver_x509.public_key().unwrap();
+    let encryption_key_size: usize = encryption_key.size();
+
+    let cipher_text_size = calculate_cipher_text_size(
+        security_policy, data.len(), encryption_key_size)?;
+
+    // collect encrypted data in a buffer starting with the security header
+    let security_header = AsymmetricSecurityHeader {
+        security_policy_uri: UAString::from(security_policy.to_uri()),
+        sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+        receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
+    };
+    let mut buffer= vec![0u8; cipher_text_size];
+    CodecP::encode(&security_header, &mut buffer);
+
+    // Encrypt data into buffer
+    let encrypted_size = security_policy.asymmetric_encrypt(
+        &encryption_key, data, &mut buffer)
+        .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
+    // Validate encrypted size is right
+    if encrypted_size != cipher_text_size {
+        panic!(
+            "Encrypted block size {} is not the same as calculated cipher text size {}",
+            encrypted_size, cipher_text_size
+        );
+    }
+    Ok(buffer)
+}
+
+
 pub fn fn_message (
     header: &MessageChunkHeader,
-    security: &Vec<u8>,
     body: &Vec<u8>,
 ) -> Result<MessageChunk, FnError> {
     let mut buffer= Vec::<u8>::new();
     CodecP::encode(header, &mut buffer);
-    buffer.extend_from_slice(security);
     buffer.extend_from_slice(body);
     Ok(MessageChunk {data: buffer})
 }

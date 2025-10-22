@@ -203,7 +203,9 @@ define_signature! {
     fn_symmetric_security_header
     fn_sequence_header
     fn_data_to_sign
+    fn_data_to_encrypt
     fn_sign
+    fn_asym_encrypt
     fn_message
 
     fn_client_open
