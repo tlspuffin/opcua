@@ -12,11 +12,13 @@ use crate::core::comms::tcp_types::{
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
     CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
 use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
-use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader};
+use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader,
+    MessageChunkType, MessageIsFinalType, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
-use crate::types::{ByteString, DiagnosticBits, ExtensionObject, MessageSecurityMode, NodeId, RequestHeader, SecurityTokenRequestType, UAString, UtcTime};
-use crate::types::service_types::OpenSecureChannelRequest;
+use crate::types::{ByteString, DiagnosticBits, ExtensionObject, MessageSecurityMode,
+    NodeId, RequestHeader, SecurityTokenRequestType, UAString, UtcTime};
+use crate::types::service_types::{CloseSecureChannelRequest, OpenSecureChannelRequest};
 
 
 use extractable_macro::Extractable;
@@ -177,6 +179,18 @@ pub fn fn_request(
     Ok(buffer)
  }
 
+pub fn fn_body(
+    channel_token_id: &u32,
+    request: &Vec<u8>,
+    mac: &Vec<u8>
+ ) -> Result<Vec<u8>, FnError> {
+    let mut buffer= Vec::<u8>::new();
+    CodecP::encode(channel_token_id, &mut buffer);
+    buffer.extend_from_slice(request);
+    buffer.extend_from_slice(mac);
+    Ok(buffer)
+ }
+
 // helper function copied from crate::comms::secure_channel
 //cf. fn plain_text_block_size(&self, padding: RsaPadding) -> usize
 fn calculate_plain_text_block_size (
@@ -323,8 +337,8 @@ pub fn fn_asym_encrypt (
 pub fn fn_mac (
     cipher_suite: &CipherSuite,
     chunk_header: &MessageChunkHeader,
-    token_id: &u32,
-    data: &Vec<u8>,
+    channel_token_id: &u32,
+    request: &Vec<u8>,
     mac_key: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
 
@@ -333,11 +347,11 @@ pub fn fn_mac (
 
     // collect data to sign in a buffer:
     let mut header = chunk_header.clone();
-    header.message_size = (header.byte_len() + 4 + data.len() + mac_length) as u32;
+    header.message_size = (header.byte_len() + 4 + request.len() + mac_length) as u32;
     let mut buffer= Vec::<u8>::new();
     CodecP::encode(&header, &mut buffer);
-    CodecP::encode(token_id, &mut buffer);
-    buffer.extend_from_slice(data);
+    CodecP::encode(channel_token_id, &mut buffer);
+    buffer.extend_from_slice(request);
 
     // compute Message Authentication Code:
     let mut mac = vec![0u8; mac_length];
@@ -383,6 +397,18 @@ pub fn fn_client_open (
         security_mode: MessageSecurityMode::Sign,
         client_nonce: ByteString { value: Some(client_nonce.clone())},
         requested_lifetime: 0,
+    };
+    let mut buffer = vec![0u8; 20];
+    CodecP::encode(&request, &mut buffer);
+    Ok(buffer)
+
+}
+
+pub fn fn_client_close (
+    request_header: &RequestHeader,
+) -> Result<Vec<u8>, FnError> {
+    let request = CloseSecureChannelRequest {
+        request_header: request_header.clone(),
     };
     let mut buffer = vec![0u8; 20];
     CodecP::encode(&request, &mut buffer);

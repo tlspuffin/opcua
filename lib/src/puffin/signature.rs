@@ -150,6 +150,7 @@ define_signature! {
     fn_header
     fn_sequence_header
     fn_request
+    fn_body
     fn_sign
     fn_asym_encrypt
     fn_mac
@@ -157,5 +158,6 @@ define_signature! {
 
     fn_request_header
     fn_client_open
+    fn_client_close
 
 }
