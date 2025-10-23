@@ -147,7 +147,7 @@ define_signature! {
 
 
     // UA SC messages:
-    fn_chunk_header
+    fn_header
     fn_sequence_header
     fn_data_to_sign
     fn_data_to_encrypt
@@ -156,6 +156,7 @@ define_signature! {
     fn_mac
     fn_message
 
+    fn_request_header
     fn_client_open
 
 }

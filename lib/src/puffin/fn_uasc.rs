@@ -85,7 +85,7 @@ impl CodecP for ChunkType{
 }
 
 
-pub fn fn_chunk_header (
+pub fn fn_header (
     message_type: &ChunkType,
     secure_channel_id: &u32
 ) -> Result<MessageChunkHeader, FnError> {
@@ -340,14 +340,11 @@ pub fn fn_message (
     Ok(MessageChunk {data: buffer})
 }
 
-pub fn fn_client_open (
-    kind: &SecurityTokenRequestType,
+pub fn fn_request_header (
     sa_token: &NodeId,
     request_id: &u32,
-    client_nonce: &Vec<u8>
-) -> Result<Vec<u8>, FnError> {
-
-    let request_header = RequestHeader{
+) -> Result<RequestHeader, FnError> {
+    Ok(RequestHeader{
         authentication_token: sa_token.clone(),
         timestamp: UtcTime::now(),
         request_handle: *request_id,
@@ -355,16 +352,22 @@ pub fn fn_client_open (
         audit_entry_id: UAString::null(),
         timeout_hint: 0, // No timeout
         additional_header: ExtensionObject::default()
-    };
+    })
+}
+
+pub fn fn_client_open (
+    request_header: &RequestHeader,
+    kind: &SecurityTokenRequestType,
+    client_nonce: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
     let request = OpenSecureChannelRequest {
-        request_header,
+        request_header: request_header.clone(),
         client_protocol_version: 0,
         request_type: *kind,
         security_mode: MessageSecurityMode::Sign,
         client_nonce: ByteString { value: Some(client_nonce.clone())},
         requested_lifetime: 0,
     };
-
     let mut buffer = vec![0u8; 20];
     CodecP::encode(&request, &mut buffer);
     Ok(buffer)
