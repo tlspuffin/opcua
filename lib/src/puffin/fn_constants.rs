@@ -4,6 +4,7 @@ use puffin::algebra::error::FnError;
 
 use crate::core::comms::secure_channel::Role;
 use crate::crypto::PrivateKey;
+use crate::puffin::signature::fn_impl::{ChunkType, CipherSuite};
 use crate::puffin::static_certs::{
     ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
     MALLORY_PRIVATE_KEY, MALLORY_CERTIFICATE, OSCAR_PRIVATE_KEY, OSCAR_CERTIFICATE};
@@ -18,6 +19,36 @@ pub fn fn_false() -> Result<bool, FnError> {
 
 pub fn fn_seq_0() -> Result<u32, FnError> {
     Ok(0)
+}
+pub fn fn_seq_1() -> Result<u32, FnError> {
+    Ok(1)
+}
+pub fn fn_seq_2() -> Result<u32, FnError> {
+    Ok(2)
+}
+pub fn fn_seq_3() -> Result<u32, FnError> {
+    Ok(3)
+}
+pub fn fn_seq_4() -> Result<u32, FnError> {
+    Ok(4)
+}
+pub fn fn_seq_5() -> Result<u32, FnError> {
+    Ok(5)
+}
+pub fn fn_seq_6() -> Result<u32, FnError> {
+    Ok(6)
+}
+pub fn fn_seq_7() -> Result<u32, FnError> {
+    Ok(7)
+}
+pub fn fn_seq_8() -> Result<u32, FnError> {
+    Ok(8)
+}
+pub fn fn_seq_9() -> Result<u32, FnError> {
+    Ok(9)
+}
+pub fn fn_seq_10() -> Result<u32, FnError> {
+    Ok(10)
 }
 
 pub fn fn_issue() -> Result<SecurityTokenRequestType, FnError> {
@@ -68,7 +99,6 @@ pub fn fn_sa_token_zero() -> Result<NodeId, FnError> {
 }
 
 // Certificates:
-
 pub fn fn_alice_cert() -> Result<ByteString, FnError> {
     Ok(ByteString{value: Some(ALICE_CERTIFICATE.1.to_vec())})
 }
@@ -81,22 +111,66 @@ pub fn fn_mallory_cert() -> Result<ByteString, FnError> {
 pub fn fn_oscar_cert() -> Result<ByteString, FnError> {
     Ok(ByteString{value: Some(OSCAR_CERTIFICATE.1.to_vec())})
 }
+pub fn fn_null_cert() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: None})
+}
 
 // Private keys:
 pub fn fn_alice_sk() -> Result<Vec<u8>, FnError> {
-    Ok(ALICE_CERTIFICATE.1.to_vec())
+    Ok(ALICE_PRIVATE_KEY.1.to_vec())
 }
 pub fn fn_bob_sk() -> Result<Vec<u8>, FnError> {
-    Ok(BOB_CERTIFICATE.1.to_vec())
+    Ok(BOB_PRIVATE_KEY.1.to_vec())
 }
 pub fn fn_mallory_sk() -> Result<Vec<u8>, FnError> {
-    Ok(MALLORY_CERTIFICATE.1.to_vec())
+    Ok(MALLORY_PRIVATE_KEY.1.to_vec())
 }
 pub fn fn_oscar_sk() -> Result<Vec<u8>, FnError> {
-    Ok(OSCAR_CERTIFICATE.1.to_vec())
+    Ok(OSCAR_PRIVATE_KEY.1.to_vec())
 }
 
-// ToDo:
-// - add client and server certificates
-// - security profiles
+// Security Policies:
+pub fn fn_security_policy_none() -> Result<CipherSuite, FnError> {
+    Ok(CipherSuite::None)
+}
+pub fn fn_aes128sha256_rsa_oaep() -> Result<CipherSuite, FnError> {
+    Ok(CipherSuite::Aes128Sha256RsaOaep)
+}
+pub fn fn_basic256sha256() -> Result<CipherSuite, FnError> {
+    Ok(CipherSuite::Basic256Sha256)
+}
+pub fn fn_aes256sha256_rsa_pss() -> Result<CipherSuite, FnError> {
+    Ok(CipherSuite::Aes256Sha256RsaPss)
+}
+pub fn fn_basic128_rsa_15() -> Result<CipherSuite, FnError> {
+    Ok(CipherSuite::Basic128Rsa15)
+}
+pub fn fn_basic256() -> Result<CipherSuite, FnError> {
+    Ok(CipherSuite::Basic256)
+}
 
+// Message Header:
+pub fn fn_open() -> Result<ChunkType, FnError> {
+    Ok(ChunkType::Open)
+}
+pub fn fn_close() -> Result<ChunkType, FnError> {
+    Ok(ChunkType::Close)
+}
+pub fn fn_intermediate() -> Result<ChunkType, FnError> {
+    Ok(ChunkType::Intermediate)
+}
+pub fn fn_final() -> Result<ChunkType, FnError> {
+    Ok(ChunkType::Final)
+}
+pub fn fn_abort() -> Result<ChunkType, FnError> {
+    Ok(ChunkType::FinalError)
+}
+
+// Nonces:
+pub fn fn_channel_nonce_1() -> Result<Vec<u8>, FnError> {
+    Ok(vec![
+        96, 136, 65, 244, 244, 100, 47, 233,
+        225, 193, 23, 66, 151, 245, 47, 115,
+        34, 200, 125, 96, 220, 252, 162, 206,
+        62, 160, 115, 203, 96, 15, 105, 6])
+}

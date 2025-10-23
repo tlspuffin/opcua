@@ -1,27 +1,97 @@
 // symbolic functions for the UA Secure Channel sub-protocol
 
+use std::io::Read;
+
 use openssl::pkey::{Private};
 
 use puffin::algebra::error::FnError;
 use puffin::codec::{CodecP, Reader};
 use puffin::error::Error;
 
-use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509, security_policy};
+use crate::core::comms::tcp_types::{
+    CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
+    HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE,
+    CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
+use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
 use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
-use crate::types::{ByteString, UAString};
+use crate::types::{ByteString, DiagnosticBits, ExtensionObject, MessageSecurityMode, NodeId, RequestHeader, SecurityTokenRequestType, UAString, UtcTime};
+use crate::types::service_types::OpenSecureChannelRequest;
+
 
 use extractable_macro::Extractable;
 
+// Neither MessageChunkType, nor MessageIsFinalType is directly encoded,
+// so we define here a simplified ChunkType that is extractable:
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Extractable, Hash, PartialEq, Serialize)]
+#[extractable(OpcuaProtocolTypes)]
+pub enum ChunkType {
+    Open,
+    Intermediate,
+    Final,
+    FinalError,
+    Close
+}
+
+impl ChunkType{
+    fn to_message_chunk_type(self) -> MessageChunkType {
+        match self {
+            ChunkType::Open  => MessageChunkType::OpenSecureChannel,
+            ChunkType::Close => MessageChunkType::CloseSecureChannel,
+            _                => MessageChunkType::Message
+        }
+    }
+    fn to_is_final(self) -> MessageIsFinalType {
+        match self {
+            ChunkType::Intermediate => MessageIsFinalType::Intermediate,
+            ChunkType::FinalError   => MessageIsFinalType::FinalError,
+            _                       => MessageIsFinalType::Final
+        }
+    }
+}
+
+impl CodecP for ChunkType{
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        match self {
+            ChunkType::Open  => bytes.extend_from_slice(OPEN_SECURE_CHANNEL_MESSAGE),
+            ChunkType::Close => bytes.extend_from_slice(CLOSE_SECURE_CHANNEL_MESSAGE),
+            _                => bytes.extend_from_slice(CHUNK_MESSAGE)
+        }
+        match self {
+            ChunkType::Intermediate => bytes.push(CHUNK_INTERMEDIATE),
+            ChunkType::FinalError   => bytes.push(CHUNK_FINAL_ERROR),
+            _                       => bytes.push(CHUNK_FINAL)
+        }
+    }
+
+    fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
+        let mut head = [0u8; 4];
+        rd.read_exact(&mut head)?;
+        match &head[0..3] {
+            OPEN_SECURE_CHANNEL_MESSAGE => *self = ChunkType::Open,
+            CLOSE_SECURE_CHANNEL_MESSAGE => *self = ChunkType::Close,
+            CHUNK_MESSAGE =>
+                match head[3] {
+                    CHUNK_INTERMEDIATE => *self = ChunkType::Intermediate,
+                    CHUNK_FINAL        => *self = ChunkType::Final,
+                    CHUNK_FINAL_ERROR  => *self = ChunkType::FinalError,
+                    _ => return Err(Error::Codec("Unexpected message head!".to_string()))
+                },
+                _ => return Err(Error::Codec("Unexpected message head!".to_string()))
+            }
+        Ok(())
+    }
+}
+
+
 pub fn fn_chunk_header (
-    message_type: &MessageChunkType,
-    is_final: &MessageIsFinalType,
+    message_type: &ChunkType,
     secure_channel_id: &u32
 ) -> Result<MessageChunkHeader, FnError> {
     Ok(MessageChunkHeader{
-        message_type: message_type.clone(),
-        is_final: is_final.clone(),
+        message_type: message_type.to_message_chunk_type(),
+        is_final: message_type.to_is_final(),
         message_size: 0,
         secure_channel_id: *secure_channel_id
     })
@@ -88,26 +158,6 @@ impl CodecP for CipherSuite {
 }
 
 
-pub fn fn_asymmetric_security_header(
-    cipher_suite: &CipherSuite,
-    sender_certificate: &Vec<u8>,
-    receiver_certificate_thumbprint: &Vec<u8>
-) -> Result<AsymmetricSecurityHeader, FnError> {
-    Ok(AsymmetricSecurityHeader {
-        security_policy_uri: UAString::from(CipherSuite::security_policy(*cipher_suite).to_uri()),
-        sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
-        receiver_certificate_thumbprint: ByteString{value: Some(receiver_certificate_thumbprint.clone())}
-    })
-}
-
-pub fn fn_symmetric_security_header(
-    token_id: &u32
-) -> Result<Vec<u8>, FnError> {
-    let mut bytes = Vec::<u8>::new();
-    CodecP::encode(token_id, &mut bytes);
-    Ok(bytes)
-}
-
 pub fn fn_sequence_header(
     sequence_number: &u32,
     request_id: &u32,
@@ -119,13 +169,11 @@ pub fn fn_sequence_header(
 }
 
 pub fn fn_data_to_sign(
-    security: &Vec<u8>,
     sequence: &SequenceHeader,
     request: &Vec<u8>
  ) -> Result<Vec<u8>, FnError> {
     let mut buffer= Vec::<u8>::new();
-    buffer.extend_from_slice(security);
-    let _ = CodecP::encode(sequence, &mut buffer);
+    CodecP::encode(sequence, &mut buffer);
     buffer.extend_from_slice(request);
     Ok(buffer)
  }
@@ -151,18 +199,19 @@ fn calculate_cipher_text_size (
 ) -> Result<usize, FnError> {
     let padding: RsaPadding = security_policy.asymmetric_encryption_padding();
     //cf. fn plain_text_block_size(&self, padding: RsaPadding) -> usize
-    let plain_text_block_size = match padding {
-        RsaPadding::Pkcs1 => encryption_key_size - 11,
-        RsaPadding::OaepSha1 => encryption_key_size - 42,
-        RsaPadding::OaepSha256 => encryption_key_size - 66,
+    let padding_size: usize = match padding {
+        RsaPadding::Pkcs1 => 11,
+        RsaPadding::OaepSha1 => 42,
+        RsaPadding::OaepSha256 => 66,
         _ => return Err(FnError::Crypto("Unsupported padding".to_string())),
     };
+    let plain_text_block_size = encryption_key_size - padding_size;
+    let cipher_text_bloc_size = encryption_key_size;
     let block_count = if data_size % plain_text_block_size == 0 {
         data_size / plain_text_block_size
     } else {
         (data_size / plain_text_block_size) + 1
     };
-    let cipher_text_bloc_size = encryption_key_size;
     Ok(block_count * cipher_text_bloc_size)
 }
 
@@ -255,6 +304,31 @@ pub fn fn_asym_encrypt (
     Ok(buffer)
 }
 
+pub fn fn_mac (
+    chunk_header: &MessageChunkHeader,
+    cipher_suite: &CipherSuite,
+    token_id: &u32,
+    data: &Vec<u8>,
+    mac_key: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+
+    let security_policy = CipherSuite::security_policy(*cipher_suite);
+    let mac_length: usize = security_policy.symmetric_signature_size();
+
+    // collect data to sign in a buffer:
+    let mut header = chunk_header.clone();
+    header.message_size = (header.byte_len() + 4 + data.len() + mac_length) as u32;
+    let mut buffer= Vec::<u8>::new();
+    CodecP::encode(&header, &mut buffer);
+    CodecP::encode(token_id, &mut buffer);
+    buffer.extend_from_slice(data);
+
+    // compute Message Authentication Code:
+    let mut mac = vec![0u8; mac_length];
+    security_policy.symmetric_sign(mac_key, &buffer, &mut mac)
+       .map_err( |_| {FnError::Crypto("Error during MAC computation".to_string())})?;
+    Ok(mac)
+}
 
 pub fn fn_message (
     header: &MessageChunkHeader,
@@ -264,4 +338,35 @@ pub fn fn_message (
     CodecP::encode(header, &mut buffer);
     buffer.extend_from_slice(body);
     Ok(MessageChunk {data: buffer})
+}
+
+pub fn fn_client_open (
+    kind: &SecurityTokenRequestType,
+    sa_token: &NodeId,
+    request_id: &u32,
+    client_nonce: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+
+    let request_header = RequestHeader{
+        authentication_token: sa_token.clone(),
+        timestamp: UtcTime::now(),
+        request_handle: *request_id,
+        return_diagnostics: DiagnosticBits::empty(),
+        audit_entry_id: UAString::null(),
+        timeout_hint: 0, // No timeout
+        additional_header: ExtensionObject::default()
+    };
+    let request = OpenSecureChannelRequest {
+        request_header,
+        client_protocol_version: 0,
+        request_type: *kind,
+        security_mode: MessageSecurityMode::Sign,
+        client_nonce: ByteString { value: Some(client_nonce.clone())},
+        requested_lifetime: 0,
+    };
+
+    let mut buffer = vec![0u8; 20];
+    CodecP::encode(&request, &mut buffer);
+    Ok(buffer)
+
 }

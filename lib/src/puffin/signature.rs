@@ -2,13 +2,11 @@ use fn_impl::*;
 use puffin::algebra::dynamic_function::FunctionAttributes;
 use puffin::algebra::error::FnError;
 use puffin::define_signature;
-use crate::prelude::{ByteString, MessageType};
+use crate::prelude::MessageType;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{
-    AcknowledgeMessage, DiagnosticBits, ErrorMessage, ExtensionObject, HelloMessage, MessageHeader, MessageSecurityMode, NodeId, 
-    OpenSecureChannelRequest, ReverseHelloMessage, RequestHeader, SecurityTokenRequestType, UAString, UtcTime
-};
+    AcknowledgeMessage, ErrorMessage, HelloMessage, MessageHeader, ReverseHelloMessage, UAString};
 
 /// These modules contain all the concrete implementations of function symbols.
 #[path = "."]
@@ -88,85 +86,6 @@ pub fn fn_error (
 }
 
 
-/*
-From types::service_types::open_secure_channel_request:
-- [X] TODO1: make this CodecP implementation a derive macro CodecP to automate the process of writing this for all struct and enum of our choice
-        ---> Done in types::service_types::open_secure_channel_request!
-        ---> Make it a proper derive macro (procedural macro) would be highly complex because it
-        has to be defined in an external crate, that would need to use this crate and puffin.
-        But this crate would also need to use the procedural macro crate --> cyclic dependencies
-        --> Keep as it is and use codec::impl_codec_p! instead!
- - [x] TODO2: Also use Extractable macro instead of manually implementing it in opcuapuffin
-        --> Done, see above file.
- - [ ] TODO3: Add a new macro Constructor to automate the definition of construction function symbol, e.g., fn_OpenSecureChannelRequest
-*/
-
-// Since we have not done TODO3, yet, here is a manual constructor function:
-pub fn fn_client_open(
-    client_nonce: &ByteString
-) -> Result<OpenSecureChannelRequest, FnError> {
-    Ok(OpenSecureChannelRequest {
-        request_header: Default::default(),
-        client_protocol_version: 0,
-        request_type: SecurityTokenRequestType::Issue,
-        security_mode: MessageSecurityMode::Sign,
-        client_nonce: client_nonce.clone(),
-        requested_lifetime: 0,
-    })
-}
-
-// pub fn fn_new_secure_channel(
-//     role: &Role,
-//     security_mode: &MessageSecurityMode,
-
-// ) -> Result<SecureChannel, FnError> {
-//     Ok(SecureChannel {
-//         role,
-//         security_policy: SecurityPolicy::Basic256Sha256,
-//         security_mode,
-//         secure_channel_id: 0,
-//         token_created_at: DateTime::default(),
-//         token_lifetime: 0,
-//         token_id: 0,
-//         /// Our certificate
-//         cert: Option<X509>,
-//         /// Our private key
-//         private_key: Option<PrivateKey>,
-//         /// Their certificate
-//         remote_cert: Option<X509>,
-//         /// Their nonce provided by open secure channel
-//         remote_nonce: Vec<u8>,
-//         /// Our nonce generated while handling open secure channel
-//         local_nonce: Vec<u8>,
-//         /// Client (i.e. other end's set of keys) Symmetric Signing Key, Encrypt Key, IV
-//         remote_keys: None, //Option<(Vec<u8>, AesKey, Vec<u8>)>,
-//         /// Server (i.e. our end's set of keys) Symmetric Signing Key, Decrypt Key, IV
-//         local_keys: None, //Option<(Vec<u8>, AesKey, Vec<u8>)>,
-//         /// Decoding options
-//         decoding_options: DecodingOptions,
-
-
-//     })
-// }
-
-
-
-pub fn fn_request_header(
-    sa_token: &NodeId,
-    request_id: &u32,
-) -> Result<RequestHeader, FnError> {
-    Ok(RequestHeader{
-        authentication_token: sa_token.clone(),
-        timestamp: UtcTime::now(),
-        request_handle: *request_id,
-        return_diagnostics: DiagnosticBits::empty(),
-        audit_entry_id: UAString::null(),
-        timeout_hint: 0, // No timeout
-        additional_header: ExtensionObject::default()
-    })
-}
-
-
 define_signature! {
     OPCUA_SIGNATURE<OpcuaProtocolTypes>,
     // constants
@@ -174,16 +93,46 @@ define_signature! {
     fn_false
 
     fn_seq_0
+    fn_seq_1
+    fn_seq_2
+    fn_seq_3
+    fn_seq_4
+    fn_seq_5
+    fn_seq_6
+    fn_seq_7
+    fn_seq_8
+    fn_seq_9
+    fn_seq_10
+
+    fn_open
+    fn_close
+    fn_intermediate
+    fn_final
+    fn_abort
 
     fn_alice_cert
     fn_bob_cert
     fn_mallory_cert
     fn_oscar_cert
+    fn_null_cert
 
     fn_alice_sk
     fn_bob_sk
     fn_mallory_sk
     fn_oscar_sk
+
+    fn_security_policy_none
+    fn_aes128sha256_rsa_oaep
+    fn_basic256sha256
+    fn_aes256sha256_rsa_pss
+    fn_basic128_rsa_15
+    fn_basic256
+
+    fn_issue
+    fn_renew
+    fn_sa_token_zero
+
+    fn_channel_nonce_1
 
     // UA TCP messages:
     fn_server_hello
@@ -199,22 +148,14 @@ define_signature! {
 
     // UA SC messages:
     fn_chunk_header
-    fn_asymmetric_security_header
-    fn_symmetric_security_header
     fn_sequence_header
     fn_data_to_sign
     fn_data_to_encrypt
     fn_sign
     fn_asym_encrypt
+    fn_mac
     fn_message
 
     fn_client_open
-
-    fn_issue
-    fn_renew
-
-    fn_request_header
-
-    fn_sa_token_zero
 
 }
