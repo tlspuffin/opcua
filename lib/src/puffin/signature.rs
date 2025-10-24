@@ -153,6 +153,8 @@ define_signature! {
     fn_body
     fn_sign
     fn_asym_encrypt
+    fn_asym_decrypt
+    fn_client_mac_key
     fn_mac
     fn_message
 

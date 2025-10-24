@@ -334,6 +334,45 @@ pub fn fn_asym_encrypt (
     Ok(buffer)
 }
 
+pub fn fn_asym_decrypt(
+    data: &Vec<u8>,
+    private_key: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+
+    // Read asymmetric security header:
+    let mut rd = Reader::init(data);
+    let mut security_header = AsymmetricSecurityHeader::none();
+    CodecP::read(&mut security_header, &mut rd)
+    .map_err( |_| {FnError::Crypto("Error reading asymmetric security header before decryption".to_string())})?;
+    let security_policy = SecurityPolicy::from_uri(security_header.security_policy_uri.as_ref());
+
+    // decrypt payload:
+    let encrypted_range = security_header.byte_len() .. data.len();
+    let encrypted_size= encrypted_range.len();
+    let mut decrypted_tmp = vec![0u8; encrypted_size];
+    let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
+    .map(|value|{PrivateKey {value}})
+    .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
+    let _decrypted_size = security_policy.asymmetric_decrypt(&decryption_key,
+        &data[encrypted_range],
+         &mut decrypted_tmp)
+    .map_err( |_| {FnError::Crypto("Error during asymmetric decryption".to_string())})?;
+    Ok(decrypted_tmp)
+}
+
+pub fn fn_client_mac_key(
+    cipher_suite: &CipherSuite,
+    client_nonce: &Vec<u8>,
+    server_nonce: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+
+    let security_policy = CipherSuite::security_policy(*cipher_suite);
+    // cf. SecureChannel: Our end's set of keys: Symmetric Signing Key, Decrypt Key, IV
+    let client_keys = security_policy.make_secure_channel_keys(
+        &server_nonce, &client_nonce);
+    Ok(client_keys.0)
+}
+
 pub fn fn_mac (
     cipher_suite: &CipherSuite,
     chunk_header: &MessageChunkHeader,

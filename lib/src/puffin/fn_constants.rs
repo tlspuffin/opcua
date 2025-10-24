@@ -3,7 +3,6 @@
 use puffin::algebra::error::FnError;
 
 use crate::core::comms::secure_channel::Role;
-use crate::crypto::PrivateKey;
 use crate::puffin::signature::fn_impl::{ChunkType, CipherSuite};
 use crate::puffin::static_certs::{
     ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
