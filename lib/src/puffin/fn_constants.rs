@@ -7,6 +7,7 @@ use crate::puffin::signature::fn_impl::{ChunkType, CipherSuite};
 use crate::puffin::static_certs::{
     ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
     MALLORY_PRIVATE_KEY, MALLORY_CERTIFICATE, OSCAR_PRIVATE_KEY, OSCAR_CERTIFICATE};
+use crate::puffin::messages::MAX_WIRE_SIZE;
 use crate::types::{ByteString, Identifier, NodeId, SecurityTokenRequestType};
 
 pub fn fn_true() -> Result<bool, FnError> {
@@ -75,7 +76,7 @@ pub fn fn_server() -> Result<Role, FnError> {
 }
 
 pub fn fn_default_size() -> Result<u32, FnError> {
-    Ok(32768) // 2^15
+    Ok(MAX_WIRE_SIZE as u32)
 }
 pub fn fn_size_8192() -> Result<u32, FnError> {
     Ok(8192) // Part 6 § 7.1.2.3 Table 66: Buffer size shall be at least 8192 bytes.

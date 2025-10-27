@@ -18,6 +18,10 @@ use puffin::codec;
 use std::collections::VecDeque;
 use std::io;
 use std::io::Read;
+use std::str;
+
+
+pub const MAX_WIRE_SIZE: usize = 40960;
 
 /// The enum type [`crate::core::comms::tcp_codec::Message`] defines
 /// all [`OpaqueProtocolMessage`], i.e. UA Connection Protocol messages,
@@ -25,12 +29,6 @@ use std::io::Read;
 /// These messages are opaque in the sense that chunks may be encrypted.
 /// Yet, knowledge can be learned from them if they are not encrypted.
 /// The [`OpaqueProtocolMessageFlight`] is used for exchanges with the PUT.
-
-impl Message {
-
-    pub const MAX_WIRE_SIZE: usize = 40960; // TODO: adjust this value to the real buffer size
-
-}
 
 impl Codec for Message {
     fn encode(&self, bytes: &mut Vec<u8>) {
@@ -47,8 +45,8 @@ impl Codec for Message {
         match rd.peek(3).unwrap() {
             HELLO_MESSAGE => {
                 let mut h = HelloMessage::new(&"",0,0,0,0);
-                HelloMessage::read(&mut h, rd).unwrap();
-                Some(Message::Hello(h))
+                if let Ok(()) = HelloMessage::read(&mut h, rd) {Some(Message::Hello(h))}
+                else {None}
             }
             ACKNOWLEDGE_MESSAGE => {
                 let mut a = AcknowledgeMessage {
@@ -59,8 +57,8 @@ impl Codec for Message {
                     max_message_size: 0,
                     max_chunk_count: 0
                 };
-                AcknowledgeMessage::read(&mut a, rd).unwrap();
-                Some(Message::Acknowledge(a))
+                if let Ok(()) = AcknowledgeMessage::read(&mut a, rd) {Some(Message::Acknowledge(a))}
+                else {None}
             }
             REVERSE_HELLO_MESSAGE => {
                 let mut r = ReverseHelloMessage{
@@ -68,8 +66,8 @@ impl Codec for Message {
                     server_uri: UAString::null(),
                     endpoint_url: UAString::null()
                 };
-                ReverseHelloMessage::read(&mut r, rd).unwrap();
-                Some(Message::Reverse(r))
+                if let Ok(()) = ReverseHelloMessage::read(&mut r, rd) {Some(Message::Reverse(r))}
+                else {None}
             }
             ERROR_MESSAGE => {
                 let mut e = ErrorMessage{
@@ -77,15 +75,15 @@ impl Codec for Message {
                     error: 0,
                     reason: UAString::null()
                 };
-                ErrorMessage::read(&mut e, rd).unwrap();
-                Some(Message::Error(e))
+                if let Ok(()) = ErrorMessage::read(&mut e, rd) {Some(Message::Error(e))}
+                else {None}
             }
             OPEN_SECURE_CHANNEL_MESSAGE | CLOSE_SECURE_CHANNEL_MESSAGE | CHUNK_MESSAGE => {
                 let mut c = MessageChunk{
                     data: vec![]
                 };
-                MessageChunk::read(&mut c, rd).unwrap();
-                Some(Message::Chunk(c))
+                if let Ok(()) = MessageChunk::read(&mut c, rd) {Some(Message::Chunk(c))}
+                else {None}
             }
             _ => None
         }
@@ -149,8 +147,8 @@ impl Codec for ServiceMessage {
 pub struct MessageDeframer {
     /// Complete chunks ready to be deciphered.
     pub frames: VecDeque<Message>,
-    /// A fixed-size buffer containing a bunch of OPC UA messages.
-    buffer: Box<[u8; Message::MAX_WIRE_SIZE]>,
+    /// A fixed-size buffer containing a bunch of OPC UA messages, or only a part of one.
+    buffer: Box<[u8; MAX_WIRE_SIZE]>,
     /// What part of buffer is used.
     used: usize,
 }
@@ -173,7 +171,7 @@ impl MessageDeframer {
     pub fn new() -> Self {
         Self {
             frames: VecDeque::new(),
-            buffer: Box::new([0u8; Message::MAX_WIRE_SIZE]),
+            buffer: Box::new([0u8; MAX_WIRE_SIZE]),
             used: 0,
         }
     }
@@ -185,7 +183,7 @@ impl MessageDeframer {
         // we get a message with a length field out of range here,
         // we do a zero length read.  That looks like an EOF to
         // the next layer up, which is fine.
-        debug_assert!(self.used <= Message::MAX_WIRE_SIZE);
+        debug_assert!(self.used <= MAX_WIRE_SIZE);
         let new_bytes = rd.read(&mut self.buffer[self.used..])?;
         self.used += new_bytes;
 
@@ -208,7 +206,8 @@ impl MessageDeframer {
         !self.frames.is_empty() || self.used > 0
     }
 
-    /// Try to decode an UA TCP or UA SC message off the front of the buffer.
+    /// Try to decode an UA TCP or UA SC message off the front of the buffer,
+    /// and store it in "frames". We just read the MessageHeader.
     fn try_deframe_one(&mut self) -> BufferContent {
         match &self.buffer[0..3] {
             CHUNK_MESSAGE => {
@@ -226,16 +225,22 @@ impl MessageDeframer {
             }
             _ => return BufferContent::Invalid
         }
-        let mut rd = codec::Reader::init(&self.buffer[3..7]);
+        let mut rd = codec::Reader::init(&self.buffer[4..8]);
         let message_size = read_u32(&mut rd).unwrap() as usize;
         if message_size > self.used {
             return BufferContent::Partial
         }
+        let message_head = str::from_utf8(&self.buffer[0..4]).unwrap(); //already checked just above!
         let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
-        let msg: Message = Codec::read(&mut rd).unwrap();
-        self.frames.push_back(msg);
-        self.consume(message_size);
-        return BufferContent::Valid
+        if let Some(msg) = Codec::read(&mut rd) {
+            log::warn!("New UA TCP Message received! ({}, {} bytes)", message_head, message_size);
+            self.frames.push_back(msg);
+            self.consume(message_size);
+            return BufferContent::Valid
+        } else {
+            log::warn!("Error reading an UA TCP Message! ({}, {} bytes)", message_head, message_size);
+            return BufferContent::Invalid
+        }
     }
 
     fn consume(&mut self, size: usize) {
@@ -334,7 +339,6 @@ impl Codec for MessageFlight {
             // continue to read the buffer
             let _ = deframer.read(&mut reader.rest());
         }
-
         Some(flight)
     }
 }
