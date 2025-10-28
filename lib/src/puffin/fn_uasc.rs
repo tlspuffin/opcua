@@ -117,8 +117,8 @@ pub enum CipherSuite {
 }
 
 impl CipherSuite {
-    fn security_policy(v: CipherSuite) -> SecurityPolicy {
-        match v {
+    fn security_policy(self) -> SecurityPolicy {
+        match self {
             CipherSuite::Unknown => SecurityPolicy::Unknown,
             CipherSuite::None => SecurityPolicy::None,
             CipherSuite::Aes128Sha256RsaOaep => SecurityPolicy::Aes128Sha256RsaOaep,
@@ -126,6 +126,18 @@ impl CipherSuite {
             CipherSuite::Aes256Sha256RsaPss => SecurityPolicy::Aes256Sha256RsaPss,
             CipherSuite::Basic128Rsa15 => SecurityPolicy::Basic128Rsa15,
             CipherSuite::Basic256 => SecurityPolicy::Basic256
+        }
+    }
+
+    fn needs_asym_encryption(self) -> bool {
+        match self {
+            CipherSuite::Unknown |
+            CipherSuite::None => false,
+            CipherSuite::Aes128Sha256RsaOaep => true,
+            CipherSuite::Basic256Sha256 => true,
+            CipherSuite::Aes256Sha256RsaPss => true,
+            CipherSuite::Basic128Rsa15 => true,
+            CipherSuite::Basic256 => true
         }
     }
 }
@@ -218,7 +230,8 @@ pub fn fn_sign (
     private_key: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
 
-    let security_policy = CipherSuite::security_policy(*cipher_suite);
+    let security_policy = cipher_suite.security_policy();
+    let needs_asym_encryption = cipher_suite.needs_asym_encryption();
     let signature_size: usize = {
         let x509 = X509::from_der(sender_certificate)
            .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
@@ -226,19 +239,27 @@ pub fn fn_sign (
     };
     let receiver_x509 = X509::from_der(&receiver_certificate)
        .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
-    let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
 
-    let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
-    let cipher_text_bloc_size = encryption_key_size;
-    let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
-    let plain_text_size = data.len() + min_footer_size;
-    let padding_size = plain_text_size % plain_text_block_size;
-    let block_count = if padding_size == 0 {
-        plain_text_size / plain_text_block_size
-    } else {
-        (plain_text_size / plain_text_block_size) + 1
-    };
-    let cipher_text_size = (block_count * cipher_text_bloc_size) + signature_size;
+    let (cipher_text_size, padding_size, min_footer_size) =
+        if needs_asym_encryption {
+            let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
+
+            let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
+            let cipher_text_bloc_size = encryption_key_size;
+            let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
+            let plain_text_size = data.len() + min_footer_size;
+            let padding_size = plain_text_size % plain_text_block_size;
+            let block_count = if padding_size == 0 {
+                plain_text_size / plain_text_block_size
+            } else {
+                (plain_text_size / plain_text_block_size) + 1
+            };
+            let cipher_text_size = (block_count * cipher_text_bloc_size) + signature_size;
+            (cipher_text_size, padding_size, min_footer_size)
+        } else {
+            let plain_text_size = data.len();
+            (plain_text_size, 0, 0)
+        };
 
     // collect data to sign in a buffer:
     let security_header = AsymmetricSecurityHeader {
@@ -253,12 +274,14 @@ pub fn fn_sign (
     CodecP::encode(&security_header, &mut buffer);
     buffer.extend_from_slice(data);
     // Add padding in the Message Footer
-    let padding_byte= (padding_size & 0xff) as u8;
-    for _ in 0..padding_size+1 {
-        buffer.push(padding_byte);
-    }
-    if min_footer_size > 1 {
-        buffer.push((padding_size >> 8) as u8);
+    if needs_asym_encryption {
+        let padding_byte= (padding_size & 0xff) as u8;
+        for _ in 0..padding_size+1 {
+            buffer.push(padding_byte);
+        }
+        if min_footer_size == 2 {
+            buffer.push((padding_size >> 8) as u8);
+        }
     }
 
     // compute signature:
@@ -281,24 +304,32 @@ pub fn fn_asym_encrypt (
     signature: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
 
-    let security_policy = CipherSuite::security_policy(*cipher_suite);
+    let security_policy = cipher_suite.security_policy();
+    let needs_asym_encryption = cipher_suite.needs_asym_encryption();
 
     let receiver_x509 = X509::from_der(&receiver_certificate)
        .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
     let encryption_key= receiver_x509.public_key().unwrap();
     let encryption_key_size: usize = encryption_key.size();
+    let (cipher_text_size, padding_size, min_footer_size) =
+       if needs_asym_encryption {
+           let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
+           let cipher_text_bloc_size = encryption_key_size;
+           let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
+           let plain_text_size = request.len() + min_footer_size;
+           let padding_size = plain_text_size % plain_text_block_size;
+           let block_count = if padding_size == 0 {
+               plain_text_size / plain_text_block_size
+           } else {
+               (plain_text_size / plain_text_block_size) + 1
+           };
+           let cipher_text_size = (block_count * cipher_text_bloc_size) + signature.len();
 
-    let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
-    let cipher_text_bloc_size = encryption_key_size;
-    let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
-    let plain_text_size = request.len() + min_footer_size;
-    let padding_size = plain_text_size % plain_text_block_size;
-    let block_count = if padding_size == 0 {
-        plain_text_size / plain_text_block_size
-    } else {
-        (plain_text_size / plain_text_block_size) + 1
-    };
-    let cipher_text_size = (block_count * cipher_text_bloc_size) + signature.len();
+           (cipher_text_size, padding_size, min_footer_size)
+       } else {
+           let plain_text_size = request.len() + signature.len();
+           (plain_text_size, 0, 0)
+       };
 
     // collect encrypted data in a buffer, starting with the security header in plain text
     let security_header = AsymmetricSecurityHeader {
@@ -311,26 +342,31 @@ pub fn fn_asym_encrypt (
 
     let mut data = Vec::from(request.clone());
     // Add padding in the Message Footer:
-    let padding_byte= (padding_size & 0xff) as u8;
-    for _ in 0..padding_size+1 {
-        data.push(padding_byte);
-    }
-    if min_footer_size > 1 {
-        data.push((padding_size >> 8) as u8);
-    }
-    data.extend_from_slice(&signature);
+    if needs_asym_encryption {
+        let padding_byte= (padding_size & 0xff) as u8;
+        for _ in 0..padding_size+1 {
+            data.push(padding_byte);
+        }
+        if min_footer_size > 1 {
+            data.push((padding_size >> 8) as u8);
+        }
+        data.extend_from_slice(&signature);
 
-    // Encrypt data into buffer
-    let encrypted_size = security_policy.asymmetric_encrypt(
-        &encryption_key, &data, &mut buffer)
-        .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
-    // Validate encrypted size is right
-    if encrypted_size != cipher_text_size {
-        panic!(
-            "Encrypted block size {} is not the same as calculated cipher text size {}",
-            encrypted_size, cipher_text_size
-        );
-    }
+        // Encrypt data into buffer
+        let encrypted_size = security_policy.asymmetric_encrypt(
+            &encryption_key, &data, &mut buffer)
+            .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
+        // Validate encrypted size is right
+        if encrypted_size != cipher_text_size {
+            panic!(
+                "Encrypted block size {} is not the same as calculated cipher text size {}",
+                encrypted_size, cipher_text_size
+            );
+        }
+    } else {
+        buffer.extend_from_slice(&request);
+        buffer.extend_from_slice(&signature);
+     }
     Ok(buffer)
 }
 

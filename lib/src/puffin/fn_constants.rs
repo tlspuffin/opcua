@@ -51,23 +51,6 @@ pub fn fn_seq_10() -> Result<u32, FnError> {
     Ok(10)
 }
 
-pub fn fn_issue() -> Result<SecurityTokenRequestType, FnError> {
-    Ok(SecurityTokenRequestType::Issue)
-}
-pub fn fn_renew() -> Result<SecurityTokenRequestType, FnError> {
-    Ok(SecurityTokenRequestType::Renew)
-}
-
-// pub fn fn_none() -> Result<MessageSecurityMode, FnError> {
-//     Ok(MessageSecurityMode::None)
-// }
-// pub fn fn_sign() -> Result<MessageSecurityMode, FnError> {
-//     Ok(MessageSecurityMode::Sign)
-// }
-// pub fn fn_encrypt() -> Result<MessageSecurityMode, FnError> {
-//     Ok(MessageSecurityMode::SignAndEncrypt)
-// }
-
 pub fn fn_client() -> Result<Role, FnError> {
     Ok(Role::Client)
 }
@@ -96,6 +79,14 @@ pub fn fn_sa_token_zero() -> Result<NodeId, FnError> {
         namespace: 0,
         identifier: Identifier::from(0)
     })
+}
+
+// Open or reopen:
+pub fn fn_issue() -> Result<SecurityTokenRequestType, FnError> {
+    Ok(SecurityTokenRequestType::Issue)
+}
+pub fn fn_renew() -> Result<SecurityTokenRequestType, FnError> {
+    Ok(SecurityTokenRequestType::Renew)
 }
 
 // Certificates:
