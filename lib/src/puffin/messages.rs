@@ -1,12 +1,12 @@
 use crate::core::comms::tcp_codec::Message;
 use crate::core::comms::tcp_types::{
+    MESSAGE_HEADER_LEN,
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
     HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE,
     CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     AcknowledgeMessage, ErrorMessage, HelloMessage, MessageChunk, MessageHeader, MessageType, OpenSecureChannelRequest, OpenSecureChannelResponse, ReverseHelloMessage, UAString};
-use crate::types::encoding::read_u32;
 
 use extractable_macro::Extractable;
 use puffin::codec::{Codec, CodecP, Reader};
@@ -42,7 +42,8 @@ impl Codec for Message {
     }
 
     fn read(rd: &mut Reader) -> Option<Self> {
-        match rd.peek(3).unwrap() {
+        if let Some(head) = rd.peek(3) {
+        match head {
             HELLO_MESSAGE => {
                 let mut h = HelloMessage::new(&"",0,0,0,0);
                 if let Ok(()) = HelloMessage::read(&mut h, rd) {Some(Message::Hello(h))}
@@ -86,6 +87,9 @@ impl Codec for Message {
                 else {None}
             }
             _ => None
+        }
+        } else {
+            None
         }
     }
 }
@@ -187,16 +191,17 @@ impl MessageDeframer {
         let new_bytes = rd.read(&mut self.buffer[self.used..])?;
         self.used += new_bytes;
 
-        loop {
+        if new_bytes > 0 { loop {
             match self.try_deframe_one() {
                 BufferContent::Invalid => {
-                    self.used = 0;  // TODO: log an error and try to resynchronize.
+                    self.used = 0;  // TODO: try to resynchronize.
+                    log::error!("Invalid UA TCP message!");
                     break;
                 }
                 BufferContent::Valid => continue,
                 BufferContent::Partial => break,
             }
-        }
+        }}
         Ok(new_bytes)
     }
 
@@ -209,36 +214,27 @@ impl MessageDeframer {
     /// Try to decode an UA TCP or UA SC message off the front of the buffer,
     /// and store it in "frames". We just read the MessageHeader.
     fn try_deframe_one(&mut self) -> BufferContent {
-        match &self.buffer[0..3] {
-            CHUNK_MESSAGE => {
-                match self.buffer[3] {
-                    CHUNK_FINAL | CHUNK_INTERMEDIATE | CHUNK_FINAL_ERROR => {},
-                    _ => return BufferContent::Invalid
-                }
-            }
-            OPEN_SECURE_CHANNEL_MESSAGE | CLOSE_SECURE_CHANNEL_MESSAGE |
-            HELLO_MESSAGE | ACKNOWLEDGE_MESSAGE | ERROR_MESSAGE | REVERSE_HELLO_MESSAGE => {
-                match self.buffer[3] {
-                    CHUNK_FINAL => {},
-                    _ => return BufferContent::Invalid
-                }
-            }
-            _ => return BufferContent::Invalid
+        //log::warn!("Try deframe one UA TCP message (buffer size: {})", self.used);
+        if self.used < MESSAGE_HEADER_LEN { return BufferContent::Partial }
+        let mut rd = codec::Reader::init(&self.buffer[0..MESSAGE_HEADER_LEN]);
+        let mut message_header = MessageHeader::new(MessageType::Hello);
+        let result = MessageHeader::read(&mut message_header, &mut rd);
+        if let Err(_) = result {
+            return BufferContent::Invalid
         }
-        let mut rd = codec::Reader::init(&self.buffer[4..8]);
-        let message_size = read_u32(&mut rd).unwrap() as usize;
+        let message_size = message_header.message_size as usize;
         if message_size > self.used {
             return BufferContent::Partial
         }
-        let message_head = str::from_utf8(&self.buffer[0..4]).unwrap(); //already checked just above!
+        let message_head = str::from_utf8(&self.buffer[0..4]).unwrap(); //checked just above!
         let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
         if let Some(msg) = Codec::read(&mut rd) {
-            log::warn!("New UA TCP Message received! ({}, {} bytes)", message_head, message_size);
+            log::warn!("New UA TCP message received! ({}, {} bytes)", message_head, message_size);
             self.frames.push_back(msg);
             self.consume(message_size);
             return BufferContent::Valid
         } else {
-            log::warn!("Error reading an UA TCP Message! ({}, {} bytes)", message_head, message_size);
+            log::warn!("Error reading an UA TCP message! ({}, {} bytes)", message_head, message_size);
             return BufferContent::Invalid
         }
     }

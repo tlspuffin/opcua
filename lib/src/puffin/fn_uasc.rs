@@ -402,7 +402,7 @@ pub fn fn_client_mac_key(
     server_nonce: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
 
-    let security_policy = CipherSuite::security_policy(*cipher_suite);
+    let security_policy = cipher_suite.security_policy();
     // cf. SecureChannel: Our end's set of keys: Symmetric Signing Key, Decrypt Key, IV
     let client_keys = security_policy.make_secure_channel_keys(
         &server_nonce, &client_nonce);
