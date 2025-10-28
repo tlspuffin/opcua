@@ -2,8 +2,7 @@ use crate::core::comms::tcp_codec::Message;
 use crate::core::comms::tcp_types::{
     MESSAGE_HEADER_LEN,
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
-    HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE,
-    CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
+    HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     AcknowledgeMessage, ErrorMessage, HelloMessage, MessageChunk, MessageHeader, MessageType, OpenSecureChannelRequest, OpenSecureChannelResponse, ReverseHelloMessage, UAString};

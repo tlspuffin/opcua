@@ -154,7 +154,10 @@ define_signature! {
     fn_sign
     fn_asym_encrypt
     fn_asym_decrypt
+    fn_get_channel_token
+    fn_get_server_nonce
     fn_client_mac_key
+    fn_data_to_mac
     fn_mac
     fn_message
 

@@ -13,7 +13,7 @@ use crate::core::comms::tcp_types::{
     CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
 use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
 use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader,
-    MessageChunkType, MessageIsFinalType, SequenceHeader};
+    MESSAGE_CHUNK_HEADER_SIZE, MessageChunkType, MessageIsFinalType, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{ByteString, DiagnosticBits, ExtensionObject, MessageSecurityMode,
@@ -396,6 +396,18 @@ pub fn fn_asym_decrypt(
     Ok(decrypted_tmp)
 }
 
+pub fn fn_get_channel_token(
+    _open_response: &Vec<u8>
+) -> Result<u32, FnError> {
+    Err(FnError::Unknown("Unimplemented".to_string()))
+}
+
+pub fn fn_get_server_nonce(
+    _open_response: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+    Err(FnError::Unknown("Unimplemented".to_string()))
+}
+
 pub fn fn_client_mac_key(
     cipher_suite: &CipherSuite,
     client_nonce: &Vec<u8>,
@@ -409,15 +421,35 @@ pub fn fn_client_mac_key(
     Ok(client_keys.0)
 }
 
-pub fn fn_mac (
+pub fn fn_make_symmetric_header (
+    message_type: &ChunkType,
+    secure_channel_id: &u32,
+    cipher_suite: &CipherSuite,
+    security_header: &Vec<u8>,
+    request: &Vec<u8>,
+) -> Result<Vec<u8>, FnError> {
+    let security_policy = cipher_suite.security_policy();
+    let mac_length: usize = security_policy.symmetric_signature_size();
+    let message_size = (MESSAGE_CHUNK_HEADER_SIZE +
+        security_header.len() + request.len() + mac_length) as u32;
+    let header = MessageChunkHeader{
+        message_type: message_type.to_message_chunk_type(),
+        is_final: message_type.to_is_final(),
+        message_size,
+        secure_channel_id: *secure_channel_id
+    };
+    let mut buffer= Vec::<u8>::new();
+    CodecP::encode(&header, &mut buffer);
+    Ok(buffer)
+}
+
+pub fn fn_data_to_mac(
     cipher_suite: &CipherSuite,
     chunk_header: &MessageChunkHeader,
     channel_token_id: &u32,
     request: &Vec<u8>,
-    mac_key: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
-
-    let security_policy = CipherSuite::security_policy(*cipher_suite);
+    let security_policy = cipher_suite.security_policy();
     let mac_length: usize = security_policy.symmetric_signature_size();
 
     // collect data to sign in a buffer:
@@ -428,9 +460,21 @@ pub fn fn_mac (
     CodecP::encode(channel_token_id, &mut buffer);
     buffer.extend_from_slice(request);
 
+    Ok(buffer)
+}
+
+pub fn fn_mac (
+    cipher_suite: &CipherSuite,
+    data: &Vec<u8>,
+    mac_key: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+
+    let security_policy = cipher_suite.security_policy();
+    let mac_length: usize = security_policy.symmetric_signature_size();
+
     // compute Message Authentication Code:
     let mut mac = vec![0u8; mac_length];
-    security_policy.symmetric_sign(mac_key, &buffer, &mut mac)
+    security_policy.symmetric_sign(mac_key, &data, &mut mac)
        .map_err( |_| {FnError::Crypto("Error during MAC computation".to_string())})?;
     Ok(mac)
 }
