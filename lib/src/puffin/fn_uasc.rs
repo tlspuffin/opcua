@@ -219,15 +219,15 @@ fn calculate_plain_text_block_size (
     Ok(encryption_key_size - padding_size)
 }
 
-// This is a complete revrite of SecureChannel::asymmetric_sign_and_encrypt()
+// The following functions are a complete revrite of SecureChannel::asymmetric_sign_and_encrypt()
 // in crate::core::comms::secure_channel::SecureChannel.
-pub fn fn_sign (
+
+pub fn fn_open_header(
     chunk_header: &MessageChunkHeader,
     cipher_suite: &CipherSuite,
     sender_certificate: &Vec<u8>,
     receiver_certificate: &Vec<u8>,
-    data: &Vec<u8>,
-    private_key: &Vec<u8>
+    data: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
 
     let security_policy = cipher_suite.security_policy();
@@ -268,9 +268,40 @@ pub fn fn_sign (
         receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
     };
     let mut header = chunk_header.clone();
-    header.message_size = (header.byte_len() + security_header.byte_len() + cipher_text_size) as u32;
-    let mut buffer= Vec::<u8>::new();
+    header.message_size = (header.byte_len() + security_header.byte_len() + cipher_text_size + padding_size + min_footer_size) as u32;
+    let mut buffer= vec![0u8; MESSAGE_CHUNK_HEADER_SIZE];
     CodecP::encode(&header, &mut buffer);
+    Ok(buffer)
+}
+
+pub fn fn_data_to_sign (
+    header: &Vec<u8>,
+    cipher_suite: &CipherSuite,
+    sender_certificate: &Vec<u8>,
+    receiver_certificate: &Vec<u8>,
+    data: &Vec<u8>,
+) -> Result<Vec<u8>, FnError> {
+    let security_policy = cipher_suite.security_policy();
+    let needs_asym_encryption = cipher_suite.needs_asym_encryption();
+    let receiver_x509 = X509::from_der(&receiver_certificate)
+       .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+    let (padding_size, min_footer_size) =
+        if needs_asym_encryption {
+            let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
+            let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
+            let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
+            let plain_text_size = data.len() + min_footer_size;
+            let padding_size = plain_text_size % plain_text_block_size;
+            (padding_size, min_footer_size)
+        } else { (0, 0) };
+    // collect data to sign in a buffer:
+    let security_header = AsymmetricSecurityHeader {
+        security_policy_uri: UAString::from(security_policy.to_uri()),
+        sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+        receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
+    };
+    let mut buffer= Vec::<u8>::new();
+    buffer.clone_from(header);
     CodecP::encode(&security_header, &mut buffer);
     buffer.extend_from_slice(data);
     // Add padding in the Message Footer
@@ -283,22 +314,32 @@ pub fn fn_sign (
             buffer.push((padding_size >> 8) as u8);
         }
     }
+    Ok(buffer)
+}
 
-    // compute signature:
+pub fn fn_sign(
+    data: &Vec<u8>,
+    cipher_suite: &CipherSuite,
+    sender_certificate: &Vec<u8>,
+    private_key: &Vec<u8>
+) -> Result<Vec<u8>, FnError> {
+    let security_policy = cipher_suite.security_policy();
+    let signature_size: usize = {
+        let x509 = X509::from_der(sender_certificate)
+           .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+        x509.public_key().unwrap().size()
+    };
     let signing_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
-       .map(|value|{PrivateKey {value}})
-       .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
-
+        .map(|value|{PrivateKey {value}})
+        .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
     let mut signature = vec![0u8; signature_size];
-    security_policy.asymmetric_sign(&signing_key, &buffer, &mut signature)
-       .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
+    security_policy.asymmetric_sign(&signing_key, data, &mut signature)
+        .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
     Ok(signature)
 }
 
-
-pub fn fn_asym_encrypt (
+pub fn fn_data_to_encrypt (
     cipher_suite: &CipherSuite,
-    sender_certificate: &Vec<u8>,
     receiver_certificate: &Vec<u8>,
     request: &Vec<u8>,
     signature: &Vec<u8>
@@ -311,24 +352,61 @@ pub fn fn_asym_encrypt (
        .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
     let encryption_key= receiver_x509.public_key().unwrap();
     let encryption_key_size: usize = encryption_key.size();
-    let (cipher_text_size, padding_size, min_footer_size) =
+    let (padding_size, min_footer_size) =
+       if needs_asym_encryption {
+           let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
+           let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
+           let plain_text_size = request.len() + min_footer_size;
+           let padding_size = plain_text_size % plain_text_block_size;
+           (padding_size, min_footer_size)
+       } else { (0, 0) };
+
+    let mut buffer= Vec::<u8>::new();
+    if needs_asym_encryption {
+        buffer.extend_from_slice(&request);
+        // Add padding in the Message Footer:
+        let padding_byte= (padding_size & 0xff) as u8;
+        for _ in 0..padding_size+1 {
+            buffer.push(padding_byte);
+        }
+        if min_footer_size == 2 {
+            buffer.push((padding_size >> 8) as u8);
+        }
+    } else {
+        buffer.extend_from_slice(&request);
+        buffer.extend_from_slice(&signature);
+     }
+    Ok(buffer)
+}
+
+pub fn fn_asym_encrypt (
+    cipher_suite: &CipherSuite,
+    sender_certificate: &Vec<u8>,
+    receiver_certificate: &Vec<u8>,
+    data: &Vec<u8>,
+) -> Result<Vec<u8>, FnError> {
+
+    let security_policy = cipher_suite.security_policy();
+    let needs_asym_encryption = cipher_suite.needs_asym_encryption();
+
+    let receiver_x509 = X509::from_der(&receiver_certificate)
+       .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+    let encryption_key= receiver_x509.public_key().unwrap();
+    let encryption_key_size: usize = encryption_key.size();
+    let cipher_text_size=
        if needs_asym_encryption {
            let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
            let cipher_text_bloc_size = encryption_key_size;
-           let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
-           let plain_text_size = request.len() + min_footer_size;
+           let plain_text_size = data.len();
            let padding_size = plain_text_size % plain_text_block_size;
            let block_count = if padding_size == 0 {
                plain_text_size / plain_text_block_size
            } else {
                (plain_text_size / plain_text_block_size) + 1
            };
-           let cipher_text_size = (block_count * cipher_text_bloc_size) + signature.len();
-
-           (cipher_text_size, padding_size, min_footer_size)
+           block_count * cipher_text_bloc_size
        } else {
-           let plain_text_size = request.len() + signature.len();
-           (plain_text_size, 0, 0)
+           data.len()
        };
 
     // collect encrypted data in a buffer, starting with the security header in plain text
@@ -337,35 +415,25 @@ pub fn fn_asym_encrypt (
         sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
         receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
     };
-    let mut buffer= vec![0u8; cipher_text_size];
+    let mut buffer= Vec::<u8>::new();
     CodecP::encode(&security_header, &mut buffer);
 
-    let mut data = Vec::from(request.clone());
-    // Add padding in the Message Footer:
     if needs_asym_encryption {
-        let padding_byte= (padding_size & 0xff) as u8;
-        for _ in 0..padding_size+1 {
-            data.push(padding_byte);
-        }
-        if min_footer_size > 1 {
-            data.push((padding_size >> 8) as u8);
-        }
-        data.extend_from_slice(&signature);
-
-        // Encrypt data into buffer
+        let mut cipher_text= vec![0u8; cipher_text_size];
+        // Encrypt data into buffer:
         let encrypted_size = security_policy.asymmetric_encrypt(
-            &encryption_key, &data, &mut buffer)
+            &encryption_key, &data, &mut cipher_text)
             .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
-        // Validate encrypted size is right
+        // Validate encrypted size is right:
         if encrypted_size != cipher_text_size {
             panic!(
                 "Encrypted block size {} is not the same as calculated cipher text size {}",
                 encrypted_size, cipher_text_size
             );
         }
+        buffer.extend_from_slice(&cipher_text);
     } else {
-        buffer.extend_from_slice(&request);
-        buffer.extend_from_slice(&signature);
+        buffer.extend_from_slice(&data);
      }
     Ok(buffer)
 }
@@ -421,58 +489,40 @@ pub fn fn_client_mac_key(
     Ok(client_keys.0)
 }
 
-pub fn fn_make_symmetric_header (
-    message_type: &ChunkType,
-    secure_channel_id: &u32,
+pub fn fn_mac_header (
     cipher_suite: &CipherSuite,
-    security_header: &Vec<u8>,
-    request: &Vec<u8>,
+    message_header: &MessageChunkHeader,
+    request: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
     let mac_length: usize = security_policy.symmetric_signature_size();
-    let message_size = (MESSAGE_CHUNK_HEADER_SIZE +
-        security_header.len() + request.len() + mac_length) as u32;
-    let header = MessageChunkHeader{
-        message_type: message_type.to_message_chunk_type(),
-        is_final: message_type.to_is_final(),
-        message_size,
-        secure_channel_id: *secure_channel_id
-    };
+    let mut header = message_header.clone();
+    header.message_size = (header.byte_len() + 4 + request.len() + mac_length) as u32;
     let mut buffer= Vec::<u8>::new();
     CodecP::encode(&header, &mut buffer);
     Ok(buffer)
 }
 
 pub fn fn_data_to_mac(
-    cipher_suite: &CipherSuite,
-    chunk_header: &MessageChunkHeader,
+    chunk_header: &Vec<u8>,
     channel_token_id: &u32,
-    request: &Vec<u8>,
+    request: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
-    let security_policy = cipher_suite.security_policy();
-    let mac_length: usize = security_policy.symmetric_signature_size();
-
-    // collect data to sign in a buffer:
-    let mut header = chunk_header.clone();
-    header.message_size = (header.byte_len() + 4 + request.len() + mac_length) as u32;
     let mut buffer= Vec::<u8>::new();
-    CodecP::encode(&header, &mut buffer);
+    buffer.clone_from(chunk_header);
     CodecP::encode(channel_token_id, &mut buffer);
     buffer.extend_from_slice(request);
-
     Ok(buffer)
 }
 
 pub fn fn_mac (
-    cipher_suite: &CipherSuite,
     data: &Vec<u8>,
+    cipher_suite: &CipherSuite,
     mac_key: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
 
     let security_policy = cipher_suite.security_policy();
     let mac_length: usize = security_policy.symmetric_signature_size();
-
-    // compute Message Authentication Code:
     let mut mac = vec![0u8; mac_length];
     security_policy.symmetric_sign(mac_key, &data, &mut mac)
        .map_err( |_| {FnError::Crypto("Error during MAC computation".to_string())})?;
@@ -480,11 +530,11 @@ pub fn fn_mac (
 }
 
 pub fn fn_message (
-    header: &MessageChunkHeader,
+    header: &Vec<u8>,
     body: &Vec<u8>,
 ) -> Result<MessageChunk, FnError> {
     let mut buffer= Vec::<u8>::new();
-    CodecP::encode(header, &mut buffer);
+    buffer.clone_from(header);
     buffer.extend_from_slice(body);
     Ok(MessageChunk {data: buffer})
 }

@@ -151,12 +151,16 @@ define_signature! {
     fn_sequence_header
     fn_request
     fn_body
+    fn_open_header
+    fn_data_to_sign
+    fn_data_to_encrypt
     fn_sign
     fn_asym_encrypt
     fn_asym_decrypt
     fn_get_channel_token
     fn_get_server_nonce
     fn_client_mac_key
+    fn_mac_header
     fn_data_to_mac
     fn_mac
     fn_message
