@@ -90,20 +90,20 @@ pub fn fn_renew() -> Result<SecurityTokenRequestType, FnError> {
 }
 
 // Certificates:
-pub fn fn_alice_cert() -> Result<ByteString, FnError> {
-    Ok(ByteString{value: Some(ALICE_CERTIFICATE.1.to_vec())})
+pub fn fn_alice_cert() -> Result<Vec<u8>, FnError> {
+    Ok(ALICE_CERTIFICATE.1.to_vec())
 }
-pub fn fn_bob_cert() -> Result<ByteString, FnError> {
-    Ok(ByteString{value: Some(BOB_CERTIFICATE.1.to_vec())})
+pub fn fn_bob_cert() -> Result<Vec<u8>, FnError> {
+    Ok(BOB_CERTIFICATE.1.to_vec())
 }
-pub fn fn_mallory_cert() -> Result<ByteString, FnError> {
-    Ok(ByteString{value: Some(MALLORY_CERTIFICATE.1.to_vec())})
+pub fn fn_mallory_cert() -> Result<Vec<u8>, FnError> {
+    Ok(MALLORY_CERTIFICATE.1.to_vec())
 }
-pub fn fn_oscar_cert() -> Result<ByteString, FnError> {
-    Ok(ByteString{value: Some(OSCAR_CERTIFICATE.1.to_vec())})
+pub fn fn_oscar_cert() -> Result<Vec<u8>, FnError> {
+    Ok(OSCAR_CERTIFICATE.1.to_vec())
 }
-pub fn fn_null_cert() -> Result<ByteString, FnError> {
-    Ok(ByteString{value: None})
+pub fn fn_null_cert() -> Result<Vec<u8>, FnError> {
+    Ok(Vec::<u8>::new())
 }
 
 // Private keys:

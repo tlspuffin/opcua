@@ -11,7 +11,7 @@ use puffin::error::Error;
 use crate::core::comms::tcp_types::{
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
     CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
-use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
+use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509, security_policy};
 use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader,
     MESSAGE_CHUNK_HEADER_SIZE, MessageChunkType, MessageIsFinalType, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
@@ -107,7 +107,6 @@ pub fn fn_header (
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Extractable, Hash, PartialEq, Serialize)]
 #[extractable(OpcuaProtocolTypes)]
 pub enum CipherSuite {
-    Unknown,
     None,
     Aes128Sha256RsaOaep,
     Basic256Sha256,
@@ -119,7 +118,6 @@ pub enum CipherSuite {
 impl CipherSuite {
     fn security_policy(self) -> SecurityPolicy {
         match self {
-            CipherSuite::Unknown => SecurityPolicy::Unknown,
             CipherSuite::None => SecurityPolicy::None,
             CipherSuite::Aes128Sha256RsaOaep => SecurityPolicy::Aes128Sha256RsaOaep,
             CipherSuite::Basic256Sha256 => SecurityPolicy::Basic256Sha256,
@@ -131,7 +129,6 @@ impl CipherSuite {
 
     fn needs_asym_encryption(self) -> bool {
         match self {
-            CipherSuite::Unknown |
             CipherSuite::None => false,
             CipherSuite::Aes128Sha256RsaOaep => true,
             CipherSuite::Basic256Sha256 => true,
@@ -145,7 +142,7 @@ impl CipherSuite {
 impl From<SecurityPolicy> for CipherSuite {
     fn from(v: SecurityPolicy) -> CipherSuite {
         match v {
-            SecurityPolicy::Unknown => CipherSuite::Unknown,
+            SecurityPolicy::Unknown => CipherSuite::None,
             SecurityPolicy::None => CipherSuite::None,
             SecurityPolicy::Aes128Sha256RsaOaep => CipherSuite::Aes128Sha256RsaOaep,
             SecurityPolicy::Basic256Sha256 => CipherSuite::Basic256Sha256,
@@ -158,7 +155,7 @@ impl From<SecurityPolicy> for CipherSuite {
 
 impl CodecP for CipherSuite {
     fn encode(&self, bytes: &mut Vec<u8>) {
-        let uri = UAString::from(CipherSuite::security_policy(*self).to_uri());
+        let uri = UAString::from(self.security_policy().to_uri());
         CodecP::encode(&uri, bytes);
     }
 
@@ -324,6 +321,9 @@ pub fn fn_sign(
     private_key: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
+    if security_policy == SecurityPolicy::None {
+        return Err(FnError::Crypto("Cannot sign with SecurityPolicy::None".to_string()))
+    }
     let signature_size: usize = {
         let x509 = X509::from_der(sender_certificate)
            .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
@@ -426,7 +426,7 @@ pub fn fn_asym_encrypt (
             .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
         // Validate encrypted size is right:
         if encrypted_size != cipher_text_size {
-            panic!(
+            error!(
                 "Encrypted block size {} is not the same as calculated cipher text size {}",
                 encrypted_size, cipher_text_size
             );
@@ -522,6 +522,12 @@ pub fn fn_mac (
 ) -> Result<Vec<u8>, FnError> {
 
     let security_policy = cipher_suite.security_policy();
+    if security_policy == SecurityPolicy::None {
+        return Err(FnError::Crypto("Cannot compute MAC for SecurityPolicy::None".to_string()))
+    }
+    if mac_key.len() != security_policy.derived_signature_key_size() {
+        return Err(FnError::Crypto("Cannot compute MAC: mac key size is incorrect".to_string()))
+    }
     let mac_length: usize = security_policy.symmetric_signature_size();
     let mut mac = vec![0u8; mac_length];
     security_policy.symmetric_sign(mac_key, &data, &mut mac)
