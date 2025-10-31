@@ -11,7 +11,7 @@ use puffin::error::Error;
 use crate::core::comms::tcp_types::{
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
     CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
-use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509, security_policy};
+use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
 use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader,
     MESSAGE_CHUNK_HEADER_SIZE, MessageChunkType, MessageIsFinalType, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
@@ -230,17 +230,22 @@ pub fn fn_open_header(
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
     let signature_size: usize = {
-        let x509 = X509::from_der(sender_certificate)
-           .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
-        x509.public_key().unwrap().size()
+        if sender_certificate.len() != 0 {
+            let x509 = X509::from_der(sender_certificate)
+               .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+            x509.public_key().unwrap().size() }
+        else { 0 }
     };
-    let receiver_x509 = X509::from_der(&receiver_certificate)
-       .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
-
+    let (receiver_certificate_thumbprint, encryption_key_size) =
+        if needs_asym_encryption {
+            let receiver_x509 = X509::from_der(&receiver_certificate)
+                .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+            (receiver_x509.thumbprint().as_byte_string(), receiver_x509.public_key().unwrap().size())
+        } else {
+            (ByteString::null(), 0)
+        };
     let (cipher_text_size, padding_size, min_footer_size) =
         if needs_asym_encryption {
-            let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
-
             let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
             let cipher_text_bloc_size = encryption_key_size;
             let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
@@ -262,7 +267,7 @@ pub fn fn_open_header(
     let security_header = AsymmetricSecurityHeader {
         security_policy_uri: UAString::from(security_policy.to_uri()),
         sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
-        receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
+        receiver_certificate_thumbprint
     };
     let mut header = chunk_header.clone();
     header.message_size = (header.byte_len() + security_header.byte_len() + cipher_text_size + padding_size + min_footer_size) as u32;
@@ -280,11 +285,16 @@ pub fn fn_data_to_sign (
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
-    let receiver_x509 = X509::from_der(&receiver_certificate)
-       .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+    let (receiver_certificate_thumbprint, encryption_key_size) =
+        if security_policy != SecurityPolicy::None {
+            let receiver_x509 = X509::from_der(&receiver_certificate)
+                .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+            (receiver_x509.thumbprint().as_byte_string(), receiver_x509.public_key().unwrap().size())
+        } else {
+            (ByteString::null(), 0)
+        };
     let (padding_size, min_footer_size) =
         if needs_asym_encryption {
-            let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
             let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
             let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
             let plain_text_size = data.len() + min_footer_size;
@@ -295,7 +305,7 @@ pub fn fn_data_to_sign (
     let security_header = AsymmetricSecurityHeader {
         security_policy_uri: UAString::from(security_policy.to_uri()),
         sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
-        receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
+        receiver_certificate_thumbprint
     };
     let mut buffer= Vec::<u8>::new();
     buffer.clone_from(header);
@@ -348,18 +358,17 @@ pub fn fn_data_to_encrypt (
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
 
-    let receiver_x509 = X509::from_der(&receiver_certificate)
-       .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
-    let encryption_key= receiver_x509.public_key().unwrap();
-    let encryption_key_size: usize = encryption_key.size();
     let (padding_size, min_footer_size) =
-       if needs_asym_encryption {
-           let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
-           let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
-           let plain_text_size = request.len() + min_footer_size;
-           let padding_size = plain_text_size % plain_text_block_size;
-           (padding_size, min_footer_size)
-       } else { (0, 0) };
+        if needs_asym_encryption {
+            let receiver_x509 = X509::from_der(&receiver_certificate)
+                .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+            let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
+            let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
+            let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
+            let plain_text_size = request.len() + min_footer_size;
+            let padding_size = plain_text_size % plain_text_block_size;
+            (padding_size, min_footer_size)
+        } else { (0, 0) };
 
     let mut buffer= Vec::<u8>::new();
     if needs_asym_encryption {
@@ -388,37 +397,33 @@ pub fn fn_asym_encrypt (
 
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
-
-    let receiver_x509 = X509::from_der(&receiver_certificate)
-       .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
-    let encryption_key= receiver_x509.public_key().unwrap();
-    let encryption_key_size: usize = encryption_key.size();
-    let cipher_text_size=
-       if needs_asym_encryption {
-           let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
-           let cipher_text_bloc_size = encryption_key_size;
-           let plain_text_size = data.len();
-           let padding_size = plain_text_size % plain_text_block_size;
-           let block_count = if padding_size == 0 {
-               plain_text_size / plain_text_block_size
-           } else {
-               (plain_text_size / plain_text_block_size) + 1
-           };
-           block_count * cipher_text_bloc_size
-       } else {
-           data.len()
-       };
-
-    // collect encrypted data in a buffer, starting with the security header in plain text
-    let security_header = AsymmetricSecurityHeader {
-        security_policy_uri: UAString::from(security_policy.to_uri()),
-        sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
-        receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
-    };
     let mut buffer= Vec::<u8>::new();
-    CodecP::encode(&security_header, &mut buffer);
 
     if needs_asym_encryption {
+        let receiver_x509 = X509::from_der(&receiver_certificate)
+        .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+        let encryption_key= receiver_x509.public_key().unwrap();
+        let encryption_key_size: usize = encryption_key.size();
+        let cipher_text_size= {
+            let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
+            let cipher_text_bloc_size = encryption_key_size;
+            let plain_text_size = data.len();
+            let padding_size = plain_text_size % plain_text_block_size;
+            let block_count = if padding_size == 0 {
+                plain_text_size / plain_text_block_size
+            } else {
+                (plain_text_size / plain_text_block_size) + 1
+            };
+            block_count * cipher_text_bloc_size
+        };
+        // collect encrypted data in a buffer, starting with the security header in plain text
+        let security_header = AsymmetricSecurityHeader {
+            security_policy_uri: UAString::from(security_policy.to_uri()),
+            sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+            receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
+        };
+        CodecP::encode(&security_header, &mut buffer);
+
         let mut cipher_text= vec![0u8; cipher_text_size];
         // Encrypt data into buffer:
         let encrypted_size = security_policy.asymmetric_encrypt(
@@ -426,15 +431,30 @@ pub fn fn_asym_encrypt (
             .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
         // Validate encrypted size is right:
         if encrypted_size != cipher_text_size {
-            error!(
-                "Encrypted block size {} is not the same as calculated cipher text size {}",
-                encrypted_size, cipher_text_size
-            );
+            return Err(FnError::Crypto(
+                format!("Encrypted block size {} is not the same as calculated cipher text size {}",
+                encrypted_size, cipher_text_size)
+            ))
         }
         buffer.extend_from_slice(&cipher_text);
-    } else {
+    }
+    else { // No asymmetric encryption.
+        let receiver_certificate_thumbprint =
+            if security_policy != SecurityPolicy::None {
+                let receiver_x509 = X509::from_der(&receiver_certificate)
+                    .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+                receiver_x509.thumbprint().as_byte_string()
+            } else {
+                ByteString::null()
+            };
+        let security_header = AsymmetricSecurityHeader {
+            security_policy_uri: UAString::from(security_policy.to_uri()),
+            sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+            receiver_certificate_thumbprint
+        };
+        CodecP::encode(&security_header, &mut buffer);
         buffer.extend_from_slice(&data);
-     }
+     };
     Ok(buffer)
 }
 
@@ -557,7 +577,7 @@ pub fn fn_request_header (
 ) -> Result<RequestHeader, FnError> {
     Ok(RequestHeader{
         authentication_token: sa_token.clone(),
-        timestamp: UtcTime::now(),
+        timestamp: UtcTime::default(), // UtcTime::now(),
         request_handle: *request_id,
         return_diagnostics: DiagnosticBits::empty(),
         audit_entry_id: UAString::null(),
@@ -579,7 +599,7 @@ pub fn fn_client_open (
         client_nonce: ByteString { value: Some(client_nonce.clone())},
         requested_lifetime: 0,
     };
-    let mut buffer = vec![0u8; 20];
+    let mut buffer = Vec::<u8>::new();
     CodecP::encode(&request, &mut buffer);
     Ok(buffer)
 
@@ -591,7 +611,7 @@ pub fn fn_client_close (
     let request = CloseSecureChannelRequest {
         request_header: request_header.clone(),
     };
-    let mut buffer = vec![0u8; 20];
+    let mut buffer = Vec::<u8>::new();
     CodecP::encode(&request, &mut buffer);
     Ok(buffer)
 
