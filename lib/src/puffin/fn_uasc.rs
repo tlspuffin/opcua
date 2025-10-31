@@ -449,6 +449,9 @@ pub fn fn_asym_decrypt(
     CodecP::read(&mut security_header, &mut rd)
     .map_err( |_| {FnError::Crypto("Error reading asymmetric security header before decryption".to_string())})?;
     let security_policy = SecurityPolicy::from_uri(security_header.security_policy_uri.as_ref());
+    if (security_policy == SecurityPolicy::None) || (security_policy == SecurityPolicy::Unknown) {
+        return Err(FnError::Crypto("Cannot decrypt with no or an unknown security policy".to_string()))
+    }
 
     // decrypt payload:
     let encrypted_range = security_header.byte_len() .. data.len();
@@ -457,11 +460,11 @@ pub fn fn_asym_decrypt(
     let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
     .map(|value|{PrivateKey {value}})
     .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
-    let _decrypted_size = security_policy.asymmetric_decrypt(&decryption_key,
+    let decrypted_size = security_policy.asymmetric_decrypt(&decryption_key,
         &data[encrypted_range],
          &mut decrypted_tmp)
     .map_err( |_| {FnError::Crypto("Error during asymmetric decryption".to_string())})?;
-    Ok(decrypted_tmp)
+    Ok(decrypted_tmp[0..decrypted_size].to_vec())
 }
 
 pub fn fn_get_channel_token(
@@ -481,8 +484,11 @@ pub fn fn_client_mac_key(
     client_nonce: &Vec<u8>,
     server_nonce: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
-
     let security_policy = cipher_suite.security_policy();
+    let nonce_length = security_policy.secure_channel_nonce_length();
+    if (client_nonce.len() != nonce_length) || (server_nonce.len() != nonce_length) {
+        return Err(FnError::Crypto("Cannot compute symmetric keys: nonce size is incorrect".to_string()))
+    }
     // cf. SecureChannel: Our end's set of keys: Symmetric Signing Key, Decrypt Key, IV
     let client_keys = security_policy.make_secure_channel_keys(
         &server_nonce, &client_nonce);

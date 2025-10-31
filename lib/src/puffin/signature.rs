@@ -110,29 +110,30 @@ define_signature! {
     fn_final
     fn_abort
 
-    fn_alice_cert
+    fn_null_cert
+    // fn_alice_cert
     fn_bob_cert
     fn_mallory_cert
-    fn_oscar_cert
-    fn_null_cert
+    // fn_oscar_cert
 
-    fn_alice_sk
-    fn_bob_sk
+    // fn_alice_sk
+    // fn_bob_sk
     fn_mallory_sk
-    fn_oscar_sk
+    // fn_oscar_sk
 
-    fn_security_policy_none
-    fn_aes128sha256_rsa_oaep
+    // fn_security_policy_none
+    // fn_aes128sha256_rsa_oaep
     fn_basic256sha256
-    fn_aes256sha256_rsa_pss
-    fn_basic128_rsa_15
-    fn_basic256
+    // fn_aes256sha256_rsa_pss
+    // fn_basic128_rsa_15
+    // fn_basic256
 
     fn_issue
     fn_renew
     fn_sa_token_zero
 
     fn_channel_nonce_1
+    fn_channel_nonce_2
 
     // UA TCP messages:
     fn_server_hello
@@ -157,8 +158,8 @@ define_signature! {
     fn_sign
     fn_asym_encrypt
     fn_asym_decrypt
-    fn_get_channel_token
-    fn_get_server_nonce
+    //fn_get_channel_token
+    //fn_get_server_nonce
     fn_client_mac_key
     fn_mac_header
     fn_data_to_mac

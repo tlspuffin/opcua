@@ -2,7 +2,8 @@ use crate::core::comms::tcp_codec::Message;
 use crate::core::comms::tcp_types::{
     MESSAGE_HEADER_LEN,
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
-    HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE};
+    HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE,
+    CHUNK_INTERMEDIATE};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     AcknowledgeMessage, ErrorMessage, HelloMessage, MessageChunk, MessageHeader, MessageType, OpenSecureChannelRequest, OpenSecureChannelResponse, ReverseHelloMessage, UAString};
@@ -225,13 +226,18 @@ impl MessageDeframer {
         if message_size > self.used {
             return BufferContent::Partial
         }
-        let message_head = str::from_utf8(&self.buffer[0..4]).unwrap(); //checked just above!
+        let head: [u8; 4] = self.buffer[0..4].try_into().unwrap(); //checked by MessageHeader::read
+        let message_head = str::from_utf8(&head).unwrap(); //checked by MessageHeader::read
         let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
         if let Some(msg) = Codec::read(&mut rd) {
             log::warn!("New UA TCP message received! ({}, {} bytes)", message_head, message_size);
             self.frames.push_back(msg);
             self.consume(message_size);
-            return BufferContent::Valid
+            if (&head[0..3] == CHUNK_MESSAGE) && (head[3] == CHUNK_INTERMEDIATE) {
+                return BufferContent::Partial
+            } else {
+                return BufferContent::Valid
+            }
         } else {
             log::warn!("Error reading an UA TCP message! ({}, {} bytes)", message_head, message_size);
             return BufferContent::Invalid
