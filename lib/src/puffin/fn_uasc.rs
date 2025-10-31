@@ -266,7 +266,7 @@ pub fn fn_open_header(
     };
     let mut header = chunk_header.clone();
     header.message_size = (header.byte_len() + security_header.byte_len() + cipher_text_size + padding_size + min_footer_size) as u32;
-    let mut buffer= vec![0u8; MESSAGE_CHUNK_HEADER_SIZE];
+    let mut buffer= Vec::<u8>::with_capacity(MESSAGE_CHUNK_HEADER_SIZE);
     CodecP::encode(&header, &mut buffer);
     Ok(buffer)
 }
