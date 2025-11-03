@@ -1,19 +1,14 @@
 // symbolic functions for the UA Secure Channel sub-protocol
 
-use std::io::Read;
-
 use openssl::pkey::{Private};
 
 use puffin::algebra::error::FnError;
 use puffin::codec::{CodecP, Reader};
 use puffin::error::Error;
 
-use crate::core::comms::tcp_types::{
-    CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
-    CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
 use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
-use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader,
-    MESSAGE_CHUNK_HEADER_SIZE, MessageChunkType, MessageIsFinalType, SequenceHeader};
+use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader, SequenceHeader};
+use crate::puffin::messages::{ChunkType, Message, MessageBody, ServiceMessage};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{ByteString, DiagnosticBits, ExtensionObject, MessageSecurityMode,
@@ -22,69 +17,6 @@ use crate::types::service_types::{CloseSecureChannelRequest, OpenSecureChannelRe
 
 
 use extractable_macro::Extractable;
-
-// Neither MessageChunkType, nor MessageIsFinalType is directly encoded,
-// so we define here a simplified ChunkType that is extractable:
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Extractable, Hash, PartialEq, Serialize)]
-#[extractable(OpcuaProtocolTypes)]
-pub enum ChunkType {
-    Open,
-    Intermediate,
-    Final,
-    FinalError,
-    Close
-}
-
-impl ChunkType{
-    fn to_message_chunk_type(self) -> MessageChunkType {
-        match self {
-            ChunkType::Open  => MessageChunkType::OpenSecureChannel,
-            ChunkType::Close => MessageChunkType::CloseSecureChannel,
-            _                => MessageChunkType::Message
-        }
-    }
-    fn to_is_final(self) -> MessageIsFinalType {
-        match self {
-            ChunkType::Intermediate => MessageIsFinalType::Intermediate,
-            ChunkType::FinalError   => MessageIsFinalType::FinalError,
-            _                       => MessageIsFinalType::Final
-        }
-    }
-}
-
-impl CodecP for ChunkType{
-    fn encode(&self, bytes: &mut Vec<u8>) {
-        match self {
-            ChunkType::Open  => bytes.extend_from_slice(OPEN_SECURE_CHANNEL_MESSAGE),
-            ChunkType::Close => bytes.extend_from_slice(CLOSE_SECURE_CHANNEL_MESSAGE),
-            _                => bytes.extend_from_slice(CHUNK_MESSAGE)
-        }
-        match self {
-            ChunkType::Intermediate => bytes.push(CHUNK_INTERMEDIATE),
-            ChunkType::FinalError   => bytes.push(CHUNK_FINAL_ERROR),
-            _                       => bytes.push(CHUNK_FINAL)
-        }
-    }
-
-    fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
-        let mut head = [0u8; 4];
-        rd.read_exact(&mut head)?;
-        match &head[0..3] {
-            OPEN_SECURE_CHANNEL_MESSAGE => *self = ChunkType::Open,
-            CLOSE_SECURE_CHANNEL_MESSAGE => *self = ChunkType::Close,
-            CHUNK_MESSAGE =>
-                match head[3] {
-                    CHUNK_INTERMEDIATE => *self = ChunkType::Intermediate,
-                    CHUNK_FINAL        => *self = ChunkType::Final,
-                    CHUNK_FINAL_ERROR  => *self = ChunkType::FinalError,
-                    _ => return Err(Error::Codec("Unexpected message head!".to_string()))
-                },
-                _ => return Err(Error::Codec("Unexpected message head!".to_string()))
-            }
-        Ok(())
-    }
-}
-
 
 pub fn fn_header (
     message_type: &ChunkType,
@@ -167,7 +99,6 @@ impl CodecP for CipherSuite {
     }
 }
 
-
 pub fn fn_sequence_header(
     sequence_number: &u32,
     request_id: &u32,
@@ -180,24 +111,26 @@ pub fn fn_sequence_header(
 
 pub fn fn_request(
     sequence: &SequenceHeader,
-    request: &Vec<u8>
+    request: &ServiceMessage
  ) -> Result<Vec<u8>, FnError> {
     let mut buffer= Vec::<u8>::new();
     CodecP::encode(sequence, &mut buffer);
-    buffer.extend_from_slice(request);
+    CodecP::encode(request, &mut buffer);
     Ok(buffer)
  }
 
 pub fn fn_body(
     channel_token_id: &u32,
-    request: &Vec<u8>,
+    sequence: &SequenceHeader,
+    service: &ServiceMessage,
     mac: &Vec<u8>
- ) -> Result<Vec<u8>, FnError> {
-    let mut buffer= Vec::<u8>::new();
-    CodecP::encode(channel_token_id, &mut buffer);
-    buffer.extend_from_slice(request);
-    buffer.extend_from_slice(mac);
-    Ok(buffer)
+ ) -> Result<MessageBody, FnError> {
+    Ok(MessageBody{
+        channel_token_id: *channel_token_id,
+        sequence_header: sequence.clone(),
+        request: service.clone(),
+        mac: mac.clone()
+    })
  }
 
 // helper function copied from crate::comms::secure_channel
@@ -225,7 +158,7 @@ pub fn fn_open_header(
     sender_certificate: &Vec<u8>,
     receiver_certificate: &Vec<u8>,
     data: &Vec<u8>
-) -> Result<Vec<u8>, FnError> {
+) -> Result<MessageChunkHeader, FnError> {
 
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
@@ -271,9 +204,7 @@ pub fn fn_open_header(
     };
     let mut header = chunk_header.clone();
     header.message_size = (header.byte_len() + security_header.byte_len() + cipher_text_size + padding_size + min_footer_size) as u32;
-    let mut buffer= Vec::<u8>::with_capacity(MESSAGE_CHUNK_HEADER_SIZE);
-    CodecP::encode(&header, &mut buffer);
-    Ok(buffer)
+    Ok(header)
 }
 
 pub fn fn_data_to_sign (
@@ -519,14 +450,12 @@ pub fn fn_mac_header (
     cipher_suite: &CipherSuite,
     message_header: &MessageChunkHeader,
     request: &Vec<u8>
-) -> Result<Vec<u8>, FnError> {
+) -> Result<MessageChunkHeader, FnError> {
     let security_policy = cipher_suite.security_policy();
     let mac_length: usize = security_policy.symmetric_signature_size();
     let mut header = message_header.clone();
     header.message_size = (header.byte_len() + 4 + request.len() + mac_length) as u32;
-    let mut buffer= Vec::<u8>::new();
-    CodecP::encode(&header, &mut buffer);
-    Ok(buffer)
+    Ok(header)
 }
 
 pub fn fn_data_to_mac(
@@ -561,14 +490,18 @@ pub fn fn_mac (
     Ok(mac)
 }
 
+pub fn fn_open_message (
+    header: &MessageChunkHeader,
+    data: &Vec<u8>,
+) -> Result<Message, FnError> {
+    Ok(Message::Open (header.clone(), data.clone()))
+}
+
 pub fn fn_message (
-    header: &Vec<u8>,
-    body: &Vec<u8>,
-) -> Result<MessageChunk, FnError> {
-    let mut buffer= Vec::<u8>::new();
-    buffer.clone_from(header);
-    buffer.extend_from_slice(body);
-    Ok(MessageChunk {data: buffer})
+    header: &MessageChunkHeader,
+    body: &MessageBody,
+) -> Result<Message, FnError> {
+    Ok(Message::Chunk (header.clone(), body.clone()))
 }
 
 pub fn fn_request_header (
@@ -590,7 +523,7 @@ pub fn fn_client_open (
     request_header: &RequestHeader,
     kind: &SecurityTokenRequestType,
     client_nonce: &Vec<u8>
-) -> Result<Vec<u8>, FnError> {
+) -> Result<ServiceMessage, FnError> {
     let request = OpenSecureChannelRequest {
         request_header: request_header.clone(),
         client_protocol_version: 0,
@@ -599,10 +532,7 @@ pub fn fn_client_open (
         client_nonce: ByteString { value: Some(client_nonce.clone())},
         requested_lifetime: 0,
     };
-    let mut buffer = Vec::<u8>::new();
-    CodecP::encode(&request, &mut buffer);
-    Ok(buffer)
-
+    Ok(ServiceMessage::OpenSecureChannelRequest(request))
 }
 
 pub fn fn_client_close (

@@ -3,6 +3,7 @@ use puffin::algebra::dynamic_function::FunctionAttributes;
 use puffin::algebra::error::FnError;
 use puffin::define_signature;
 use crate::prelude::MessageType;
+use crate::puffin::messages::Message;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{
@@ -25,14 +26,14 @@ pub mod fn_impl {
 pub fn fn_server_hello (
     server_uri:  &Vec<u8>,
     endpoint_url: &Vec<u8>,
-) -> Result<ReverseHelloMessage, FnError> {
+) -> Result<Message, FnError> {
     let mut msg = ReverseHelloMessage {
         message_header: MessageHeader::new(MessageType::Reverse),
         server_uri: UAString::from(String::from_utf8_lossy(server_uri).as_ref()),
         endpoint_url: UAString::from(String::from_utf8_lossy(&endpoint_url).as_ref())
     };
     msg.message_header.message_size = msg.byte_len() as u32;
-    Ok(msg)
+    Ok(Message::Reverse(msg))
 }
 
 /// Hello
@@ -40,7 +41,7 @@ pub fn fn_client_hello (
     endpoint_url: &Vec<u8>,
     send_buffer_size: &u32,
     receive_buffer_size: &u32
-) -> Result<HelloMessage, FnError> {
+) -> Result<Message, FnError> {
     let mut msg = HelloMessage {
         message_header: MessageHeader::new(MessageType::Hello),
         protocol_version: 0,
@@ -51,14 +52,14 @@ pub fn fn_client_hello (
         endpoint_url: UAString::from(String::from_utf8_lossy(endpoint_url).as_ref())
     };
     msg.message_header.message_size = msg.byte_len() as u32;
-    Ok(msg)
+    Ok(Message::Hello(msg))
 }
 
 /// Acknowledge
 pub fn fn_acknowledge (
     receive_buffer_size: &u32,
     send_buffer_size: &u32,
-) -> Result<AcknowledgeMessage, FnError> {
+) -> Result<Message, FnError> {
     let mut msg = AcknowledgeMessage {
         message_header: MessageHeader::new(MessageType::Acknowledge),
         protocol_version: 0,
@@ -68,21 +69,21 @@ pub fn fn_acknowledge (
         max_chunk_count: 0,   // 0: Server has no limit
     };
     msg.message_header.message_size = msg.byte_len() as u32;
-    Ok(msg)
+    Ok(Message::Acknowledge(msg))
 }
 
 /// Error
 pub fn fn_error (
     error_code: &u32,
     reason: &String
-) -> Result<ErrorMessage, FnError> {
+) -> Result<Message, FnError> {
     let mut msg = ErrorMessage {
         message_header: MessageHeader::new(MessageType::Error),
         error: *error_code,
         reason: UAString::from(reason),
     };
     msg.message_header.message_size = msg.byte_len() as u32;
-    Ok(msg)
+    Ok(Message::Error(msg))
 }
 
 
@@ -158,6 +159,7 @@ define_signature! {
     fn_sign
     fn_asym_encrypt
     fn_asym_decrypt
+    fn_open_message
     //fn_get_channel_token
     //fn_get_server_nonce
     fn_client_mac_key

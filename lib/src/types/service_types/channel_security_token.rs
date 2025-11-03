@@ -64,3 +64,14 @@ impl BinaryEncoder<ChannelSecurityToken> for ChannelSecurityToken {
     }
 }
 crate::impl_codec_p!(ChannelSecurityToken);
+
+impl Default for ChannelSecurityToken{
+    fn default() -> Self {
+        ChannelSecurityToken {
+            channel_id: 0,
+            token_id: 0,
+            created_at: DateTime::epoch(),
+            revised_lifetime: 0,
+        }
+    }
+}

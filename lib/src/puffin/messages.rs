@@ -1,15 +1,16 @@
-use crate::core::comms::tcp_codec::Message;
 use crate::core::comms::tcp_types::{
     MESSAGE_HEADER_LEN,
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
     HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE,
-    CHUNK_INTERMEDIATE};
+    CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
+use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    AcknowledgeMessage, ErrorMessage, HelloMessage, MessageChunk, MessageHeader, MessageType, OpenSecureChannelRequest, OpenSecureChannelResponse, ReverseHelloMessage, UAString};
+    AcknowledgeMessage, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, ErrorMessage, HelloMessage, MessageChunk, MessageHeader, MessageSecurityMode, MessageType, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, UAString};
 
 use extractable_macro::Extractable;
 use puffin::codec::{Codec, CodecP, Reader};
+use puffin::error::Error;
 use puffin::protocol::{
     OpaqueProtocolMessage, OpaqueProtocolMessageFlight, ProtocolMessage,
     ProtocolMessageDeframer, ProtocolMessageFlight};
@@ -20,15 +21,94 @@ use std::io;
 use std::io::Read;
 use std::str;
 
-
 pub const MAX_WIRE_SIZE: usize = 40960;
 
+// Neither MessageChunkType, nor MessageIsFinalType is directly encoded,
+// so we define here a simplified ChunkType that is extractable:
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Extractable, Hash, PartialEq, Serialize)]
+#[extractable(OpcuaProtocolTypes)]
+pub enum ChunkType {
+    Open,
+    Intermediate,
+    Final,
+    FinalError,
+    Close
+}
+
+impl ChunkType{
+    pub fn to_message_chunk_type(self) -> MessageChunkType {
+        match self {
+            ChunkType::Open  => MessageChunkType::OpenSecureChannel,
+            ChunkType::Close => MessageChunkType::CloseSecureChannel,
+            _                => MessageChunkType::Message
+        }
+    }
+    pub fn to_is_final(self) -> MessageIsFinalType {
+        match self {
+            ChunkType::Intermediate => MessageIsFinalType::Intermediate,
+            ChunkType::FinalError   => MessageIsFinalType::FinalError,
+            _                       => MessageIsFinalType::Final
+        }
+    }
+}
+
+impl CodecP for ChunkType{
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        match self {
+            ChunkType::Open  => bytes.extend_from_slice(OPEN_SECURE_CHANNEL_MESSAGE),
+            ChunkType::Close => bytes.extend_from_slice(CLOSE_SECURE_CHANNEL_MESSAGE),
+            _                => bytes.extend_from_slice(CHUNK_MESSAGE)
+        }
+        match self {
+            ChunkType::Intermediate => bytes.push(CHUNK_INTERMEDIATE),
+            ChunkType::FinalError   => bytes.push(CHUNK_FINAL_ERROR),
+            _                       => bytes.push(CHUNK_FINAL)
+        }
+    }
+
+    fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
+        let mut head = [0u8; 4];
+        rd.read_exact(&mut head)?;
+        match &head[0..3] {
+            OPEN_SECURE_CHANNEL_MESSAGE => *self = ChunkType::Open,
+            CLOSE_SECURE_CHANNEL_MESSAGE => *self = ChunkType::Close,
+            CHUNK_MESSAGE =>
+                match head[3] {
+                    CHUNK_INTERMEDIATE => *self = ChunkType::Intermediate,
+                    CHUNK_FINAL        => *self = ChunkType::Final,
+                    CHUNK_FINAL_ERROR  => *self = ChunkType::FinalError,
+                    _ => return Err(Error::Codec("Unexpected message head!".to_string()))
+                },
+                _ => return Err(Error::Codec("Unexpected message head!".to_string()))
+            }
+        Ok(())
+    }
+}
+
+
 /// The enum type [`crate::core::comms::tcp_codec::Message`] defines
-/// all [`OpaqueProtocolMessage`], i.e. UA Connection Protocol messages,
-/// and chunks of UA Secure Channel messages that are Signed and/or Encrypted.
+/// all UA Connection Protocol messages and chunks of UA Secure Channel messages
+/// that are Signed and/or Encrypted.
+/// However chunks make no distinction between:
+///  - OpensecureChannel messages that are encrypted
+///  - normal messages that are only protected by a MAC
+/// Therefore to avoid modifing the original code, we redefine a similar Message
+/// structure here that is more suited to the fuzzer.
+/// This Message structure is used as [`OpaqueProtocolMessage`].
 /// These messages are opaque in the sense that chunks may be encrypted.
 /// Yet, knowledge can be learned from them if they are not encrypted.
 /// The [`OpaqueProtocolMessageFlight`] is used for exchanges with the PUT.
+
+#[derive(Debug, Clone, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
+pub enum Message {
+    Hello(HelloMessage),
+    Acknowledge(AcknowledgeMessage),
+    Error(ErrorMessage),
+    Reverse(ReverseHelloMessage),
+    Open(MessageChunkHeader, #[extractable_ignore] Vec<u8>),
+    Chunk(MessageChunkHeader, MessageBody),
+}
 
 impl Codec for Message {
     fn encode(&self, bytes: &mut Vec<u8>) {
@@ -37,7 +117,14 @@ impl Codec for Message {
             Message::Acknowledge(ref a) => a.encode(bytes),
             Message::Error(ref e) => e.encode(bytes),
             Message::Reverse(ref r) => r.encode(bytes),
-            Message::Chunk(ref c) => bytes.extend_from_slice(&c.data) //c.encode(bytes) will panic!
+            Message::Open(ref h, ref c) => {
+                h.encode(bytes);
+                bytes.extend_from_slice(&c);
+            }
+            Message::Chunk(ref header, ref body ) => {
+                header.encode(bytes);
+                body.encode(bytes);
+            }
         }
     }
 
@@ -79,18 +166,41 @@ impl Codec for Message {
                 if let Ok(()) = ErrorMessage::read(&mut e, rd) {Some(Message::Error(e))}
                 else {None}
             }
-            OPEN_SECURE_CHANNEL_MESSAGE | CLOSE_SECURE_CHANNEL_MESSAGE | CHUNK_MESSAGE => {
-                let mut c = MessageChunk{
-                    data: vec![]
+            OPEN_SECURE_CHANNEL_MESSAGE => {
+                let mut header = MessageChunkHeader{
+                    message_type: MessageChunkType::OpenSecureChannel,
+                    is_final: MessageIsFinalType::Final,
+                    message_size: 0,
+                    secure_channel_id: 0
                 };
-                if let Ok(()) = MessageChunk::read(&mut c, rd) {Some(Message::Chunk(c))}
-                else {None}
+                if let Ok(()) = MessageChunkHeader::read(&mut header, rd) {
+                    let size = (header.message_size as usize) - MESSAGE_CHUNK_HEADER_SIZE;
+                    if size < 1 { return None }
+                    let mut body = vec![0u8; size];
+                    if let Ok(()) = rd.read_exact(&mut body) {
+                        Some(Message::Open(header, body))
+                    } else {None}
+                } else {None}
+            }
+            CLOSE_SECURE_CHANNEL_MESSAGE | CHUNK_MESSAGE => {
+                let mut header = MessageChunkHeader{
+                    message_type: MessageChunkType::OpenSecureChannel,
+                    is_final: MessageIsFinalType::Final,
+                    message_size: 0,
+                    secure_channel_id: 0
+                };
+                if let Ok(()) = MessageChunkHeader::read(&mut header, rd) {
+                    let size = (header.message_size as usize) - MESSAGE_CHUNK_HEADER_SIZE;
+                    if size < 1 { return None }
+                    let mut body = MessageBody::default();
+                    if let Ok(()) = CodecP::read(&mut body, rd) {
+                        Some(Message::Chunk(header, body))
+                    } else {None}
+                } else {None}
             }
             _ => None
         }
-        } else {
-            None
-        }
+        } else {None}
     }
 }
 
@@ -128,6 +238,9 @@ pub enum ServiceMessage {
     // /!\ We may have to add the SecureChannel data.
     OpenSecureChannelRequest(OpenSecureChannelRequest),
     OpenSecureChannelResponse(OpenSecureChannelResponse),
+    CloseSecureChannelRequest(CloseSecureChannelRequest),
+    CloseSecureChannelResponse(CloseSecureChannelResponse),
+    None
 }
 
 impl Codec for ServiceMessage {
@@ -137,13 +250,90 @@ impl Codec for ServiceMessage {
                r.encode(bytes),
             ServiceMessage::OpenSecureChannelResponse(ref r) =>
                r.encode(bytes),
+            ServiceMessage::CloseSecureChannelRequest(ref r) =>
+               r.encode(bytes),
+            ServiceMessage::CloseSecureChannelResponse(ref r) =>
+               r.encode(bytes),
+            ServiceMessage::None => ()
         }
     }
 
-    fn read(_rd: &mut Reader) -> Option<Self> {
-        panic!("Not implemented for test stub");
+    fn read(rd: &mut Reader) -> Option<Self> {
+        let mut open_request = OpenSecureChannelRequest {
+            request_header: RequestHeader::default(),
+            client_protocol_version: 0,
+            request_type: SecurityTokenRequestType::Issue,
+            security_mode: MessageSecurityMode::Sign,
+            client_nonce: ByteString::null(),
+            requested_lifetime: 0,
+        };
+        if let Ok(()) = CodecP::read(&mut open_request, rd) {
+            return Some(ServiceMessage::OpenSecureChannelRequest(open_request))
+        };
+        let mut open_response = OpenSecureChannelResponse {
+            response_header: ResponseHeader::null(),
+            server_protocol_version: 0,
+            security_token: ChannelSecurityToken::default(),
+            server_nonce: ByteString::null()
+        };
+        if let Ok(()) = CodecP::read(&mut open_response, rd) {
+            return Some(ServiceMessage::OpenSecureChannelResponse(open_response))
+        }
+        let mut close_request = CloseSecureChannelRequest {
+            request_header: RequestHeader::default()
+        };
+        if let Ok(()) = CodecP::read(&mut close_request, rd) {
+            return Some(ServiceMessage::CloseSecureChannelRequest(close_request))
+        };
+        let mut close_response = CloseSecureChannelResponse {
+            response_header: ResponseHeader::null()
+        };
+        if let Ok(()) = CodecP::read(&mut close_response, rd) {
+            return Some(ServiceMessage::CloseSecureChannelResponse(close_response))
+        }
+        None
     }
 }
+
+#[derive(Debug, Clone, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
+pub struct MessageBody {
+    pub channel_token_id: u32,
+    pub sequence_header: SequenceHeader,
+    pub request: ServiceMessage,
+    pub mac: Vec<u8>
+}
+
+impl Default for MessageBody {
+    fn default() -> MessageBody {
+        MessageBody{
+            channel_token_id: 0,
+            sequence_header: SequenceHeader {
+                sequence_number: 0,
+                request_id: 0
+            },
+            request: ServiceMessage::None,
+            mac: vec![]
+        }
+    }
+}
+
+impl CodecP for MessageBody {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        CodecP::encode(&self.channel_token_id, bytes);
+        CodecP::encode(&self.sequence_header, bytes);
+        bytes.extend_from_slice(&self.mac);
+    }
+
+    fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
+        self.channel_token_id.read(rd)?;
+        self.sequence_header.read(rd)?;
+        self.request.read(rd)?;
+        self.mac.read(rd)?;
+        Ok(())
+    }
+}
+
 
 /// The [`MessageDeframer`] is used to extract from a buffer of bytes ([u8]) a [`MessageFlight`].
 // Maybe, some of the code of the MessageDeframer should be moved into Puffin,

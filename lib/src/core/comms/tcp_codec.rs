@@ -29,14 +29,13 @@ use super::{
     },
 };
 
-#[derive(Debug, Clone, extractable_macro::Extractable)]
-#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
+#[derive(Debug, Clone)]
 pub enum Message {
     Hello(HelloMessage),
     Acknowledge(AcknowledgeMessage),
     Error(ErrorMessage),
     Reverse(ReverseHelloMessage),
-    Chunk(#[extractable_ignore] MessageChunk),
+    Chunk(MessageChunk),
 }
 
 /// Implements a tokio codec that as close as possible, allows incoming data to be transformed into

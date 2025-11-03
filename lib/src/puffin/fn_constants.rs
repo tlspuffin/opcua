@@ -3,12 +3,13 @@
 use puffin::algebra::error::FnError;
 
 use crate::core::comms::secure_channel::Role;
-use crate::puffin::signature::fn_impl::{ChunkType, CipherSuite};
+use crate::puffin::messages::ChunkType;
+use crate::puffin::signature::fn_impl::CipherSuite;
 use crate::puffin::static_certs::{
     ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
     MALLORY_PRIVATE_KEY, MALLORY_CERTIFICATE, OSCAR_PRIVATE_KEY, OSCAR_CERTIFICATE};
 use crate::puffin::messages::MAX_WIRE_SIZE;
-use crate::types::{ByteString, Identifier, NodeId, SecurityTokenRequestType};
+use crate::types::{Identifier, NodeId, SecurityTokenRequestType};
 
 pub fn fn_true() -> Result<bool, FnError> {
     Ok(true)
