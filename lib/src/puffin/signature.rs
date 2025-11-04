@@ -135,6 +135,7 @@ define_signature! {
     fn_mode_sign
     fn_sa_token_zero
 
+    fn_no_nonce
     fn_channel_nonce_1
     fn_channel_nonce_2
 
@@ -156,6 +157,7 @@ define_signature! {
     fn_request
     fn_body
     fn_open_header
+    fn_no_bytes
     fn_data_to_sign
     fn_data_to_encrypt
     //fn_sign

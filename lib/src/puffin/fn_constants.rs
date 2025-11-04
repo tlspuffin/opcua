@@ -9,7 +9,7 @@ use crate::puffin::static_certs::{
     ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
     MALLORY_PRIVATE_KEY, MALLORY_CERTIFICATE, OSCAR_PRIVATE_KEY, OSCAR_CERTIFICATE};
 use crate::puffin::messages::MAX_WIRE_SIZE;
-use crate::types::{Identifier, MessageSecurityMode, NodeId, SecurityTokenRequestType};
+use crate::types::{ByteString, Identifier, MessageSecurityMode, NodeId, SecurityTokenRequestType};
 
 pub fn fn_true() -> Result<bool, FnError> {
     Ok(true)
@@ -97,20 +97,20 @@ pub fn fn_mode_sign() -> Result<MessageSecurityMode, FnError> {
 }
 
 // Certificates:
-pub fn fn_alice_cert() -> Result<Vec<u8>, FnError> {
-    Ok(ALICE_CERTIFICATE.1.to_vec())
+pub fn fn_alice_cert() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(ALICE_CERTIFICATE.1.to_vec())})
 }
-pub fn fn_bob_cert() -> Result<Vec<u8>, FnError> {
-    Ok(BOB_CERTIFICATE.1.to_vec())
+pub fn fn_bob_cert() -> Result<ByteString, FnError>  {
+    Ok(ByteString{value: Some(BOB_CERTIFICATE.1.to_vec())})
 }
-pub fn fn_mallory_cert() -> Result<Vec<u8>, FnError> {
-    Ok(MALLORY_CERTIFICATE.1.to_vec())
+pub fn fn_mallory_cert() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(MALLORY_CERTIFICATE.1.to_vec())})
 }
-pub fn fn_oscar_cert() -> Result<Vec<u8>, FnError> {
-    Ok(OSCAR_CERTIFICATE.1.to_vec())
+pub fn fn_oscar_cert() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(OSCAR_CERTIFICATE.1.to_vec())})
 }
-pub fn fn_null_cert() -> Result<Vec<u8>, FnError> {
-    Ok(Vec::<u8>::new())
+pub fn fn_null_cert() -> Result<ByteString, FnError> {
+    Ok(ByteString::null())
 }
 
 // Private keys:
@@ -165,18 +165,24 @@ pub fn fn_abort() -> Result<ChunkType, FnError> {
 }
 
 // Nonces:
-pub fn fn_channel_nonce_1() -> Result<Vec<u8>, FnError> {
-    Ok(vec![
+pub fn fn_channel_nonce_1() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(vec![
         96, 136, 65, 244, 244, 100, 47, 233,
         225, 193, 23, 66, 151, 245, 47, 115,
         34, 200, 125, 96, 220, 252, 162, 206,
-        62, 160, 115, 203, 96, 15, 105, 6])
+        62, 160, 115, 203, 96, 15, 105, 6])})
 }
-pub fn fn_channel_nonce_2() -> Result<Vec<u8>, FnError> {
-    Ok(vec![
+pub fn fn_channel_nonce_2() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(vec![
         244, 108, 167, 184, 13, 100, 45, 5,
         10, 250, 197, 126, 173, 140, 236, 226,
         172, 79, 112, 133, 181, 253, 123, 7,
-        106, 246, 206, 113, 129, 158, 26, 10])
+        106, 246, 206, 113, 129, 158, 26, 10])})
+}
+pub fn fn_no_nonce() -> Result<ByteString, FnError> {
+    Ok(ByteString::null())
 }
 
+pub fn fn_no_bytes() -> Result<Vec<u8>, FnError> {
+    Ok(vec![])
+}

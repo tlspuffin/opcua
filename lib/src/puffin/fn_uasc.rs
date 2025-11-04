@@ -155,23 +155,23 @@ fn calculate_plain_text_block_size (
 pub fn fn_open_header(
     chunk_header: &MessageChunkHeader,
     cipher_suite: &CipherSuite,
-    sender_certificate: &Vec<u8>,
-    receiver_certificate: &Vec<u8>,
+    sender_certificate: &ByteString,
+    receiver_certificate: &ByteString,
     data: &Vec<u8>
 ) -> Result<MessageChunkHeader, FnError> {
 
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
     let signature_size: usize = {
-        if sender_certificate.len() != 0 {
-            let x509 = X509::from_der(sender_certificate)
+        if !sender_certificate.is_null_or_empty() {
+            let x509 = X509::from_der(sender_certificate.as_ref())
                .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
             x509.public_key().unwrap().size() }
         else { 0 }
     };
     let (receiver_certificate_thumbprint, encryption_key_size) =
         if needs_asym_encryption {
-            let receiver_x509 = X509::from_der(&receiver_certificate)
+            let receiver_x509 = X509::from_der(receiver_certificate.as_ref())
                 .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
             (receiver_x509.thumbprint().as_byte_string(), receiver_x509.public_key().unwrap().size())
         } else {
@@ -196,10 +196,9 @@ pub fn fn_open_header(
             (plain_text_size, 0, 0)
         };
 
-    // collect data to sign in a buffer:
     let security_header = AsymmetricSecurityHeader {
         security_policy_uri: UAString::from(security_policy.to_uri()),
-        sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+        sender_certificate: sender_certificate.clone(),
         receiver_certificate_thumbprint
     };
     let mut header = chunk_header.clone();
@@ -210,15 +209,15 @@ pub fn fn_open_header(
 pub fn fn_data_to_sign (
     header: &Vec<u8>,
     cipher_suite: &CipherSuite,
-    sender_certificate: &Vec<u8>,
-    receiver_certificate: &Vec<u8>,
+    sender_certificate: &ByteString,
+    receiver_certificate: &ByteString,
     data: &Vec<u8>,
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
     let (receiver_certificate_thumbprint, encryption_key_size) =
         if security_policy != SecurityPolicy::None {
-            let receiver_x509 = X509::from_der(&receiver_certificate)
+            let receiver_x509 = X509::from_der(receiver_certificate.as_ref())
                 .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
             (receiver_x509.thumbprint().as_byte_string(), receiver_x509.public_key().unwrap().size())
         } else {
@@ -235,7 +234,7 @@ pub fn fn_data_to_sign (
     // collect data to sign in a buffer:
     let security_header = AsymmetricSecurityHeader {
         security_policy_uri: UAString::from(security_policy.to_uri()),
-        sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+        sender_certificate: sender_certificate.clone(),
         receiver_certificate_thumbprint
     };
     let mut buffer= Vec::<u8>::new();
@@ -258,7 +257,7 @@ pub fn fn_data_to_sign (
 pub fn fn_sign(
     data: &Vec<u8>,
     cipher_suite: &CipherSuite,
-    sender_certificate: &Vec<u8>,
+    sender_certificate: &ByteString,
     private_key: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
@@ -266,7 +265,7 @@ pub fn fn_sign(
         return Err(FnError::Crypto("Cannot sign with SecurityPolicy::None".to_string()))
     }
     let signature_size: usize = {
-        let x509 = X509::from_der(sender_certificate)
+        let x509 = X509::from_der(sender_certificate.as_ref())
            .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
         x509.public_key().unwrap().size()
     };
@@ -281,7 +280,7 @@ pub fn fn_sign(
 
 pub fn fn_data_to_encrypt (
     cipher_suite: &CipherSuite,
-    receiver_certificate: &Vec<u8>,
+    receiver_certificate: &ByteString,
     request: &Vec<u8>,
     signature: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
@@ -291,7 +290,7 @@ pub fn fn_data_to_encrypt (
 
     let (padding_size, min_footer_size) =
         if needs_asym_encryption {
-            let receiver_x509 = X509::from_der(&receiver_certificate)
+            let receiver_x509 = X509::from_der(receiver_certificate.as_ref())
                 .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
             let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
             let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
@@ -321,8 +320,8 @@ pub fn fn_data_to_encrypt (
 
 pub fn fn_asym_encrypt (
     cipher_suite: &CipherSuite,
-    sender_certificate: &Vec<u8>,
-    receiver_certificate: &Vec<u8>,
+    sender_certificate: &ByteString,
+    receiver_certificate: &ByteString,
     data: &Vec<u8>,
 ) -> Result<Vec<u8>, FnError> {
 
@@ -331,7 +330,7 @@ pub fn fn_asym_encrypt (
     let mut buffer= Vec::<u8>::new();
 
     if needs_asym_encryption {
-        let receiver_x509 = X509::from_der(&receiver_certificate)
+        let receiver_x509 = X509::from_der(receiver_certificate.as_ref())
         .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
         let encryption_key= receiver_x509.public_key().unwrap();
         let encryption_key_size: usize = encryption_key.size();
@@ -350,7 +349,7 @@ pub fn fn_asym_encrypt (
         // collect encrypted data in a buffer, starting with the security header in plain text
         let security_header = AsymmetricSecurityHeader {
             security_policy_uri: UAString::from(security_policy.to_uri()),
-            sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+            sender_certificate: sender_certificate.clone(),
             receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
         };
         CodecP::encode(&security_header, &mut buffer);
@@ -372,7 +371,7 @@ pub fn fn_asym_encrypt (
     else { // No asymmetric encryption.
         let receiver_certificate_thumbprint =
             if security_policy != SecurityPolicy::None {
-                let receiver_x509 = X509::from_der(&receiver_certificate)
+                let receiver_x509 = X509::from_der(receiver_certificate.as_ref())
                     .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
                 receiver_x509.thumbprint().as_byte_string()
             } else {
@@ -380,7 +379,7 @@ pub fn fn_asym_encrypt (
             };
         let security_header = AsymmetricSecurityHeader {
             security_policy_uri: UAString::from(security_policy.to_uri()),
-            sender_certificate: ByteString{value: Some(sender_certificate.clone()) },
+            sender_certificate: sender_certificate.clone(),
             receiver_certificate_thumbprint
         };
         CodecP::encode(&security_header, &mut buffer);
@@ -426,23 +425,23 @@ pub fn fn_get_channel_token(
 
 pub fn fn_get_server_nonce(
     _open_response: &Vec<u8>
-) -> Result<Vec<u8>, FnError> {
+) -> Result<ByteString, FnError> {
     Err(FnError::Unknown("Unimplemented".to_string()))
 }
 
 pub fn fn_client_mac_key(
     cipher_suite: &CipherSuite,
-    client_nonce: &Vec<u8>,
-    server_nonce: &Vec<u8>
+    client_nonce: &ByteString,
+    server_nonce: &ByteString
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
     let nonce_length = security_policy.secure_channel_nonce_length();
-    if (client_nonce.len() != nonce_length) || (server_nonce.len() != nonce_length) {
+    if (client_nonce.as_ref().len() != nonce_length) || (server_nonce.as_ref().len() != nonce_length) {
         return Err(FnError::Crypto("Cannot compute symmetric keys: nonce size is incorrect".to_string()))
     }
     // cf. SecureChannel: Our end's set of keys: Symmetric Signing Key, Decrypt Key, IV
     let client_keys = security_policy.make_secure_channel_keys(
-        &server_nonce, &client_nonce);
+        server_nonce.as_ref(), client_nonce.as_ref());
     Ok(client_keys.0)
 }
 
@@ -523,14 +522,14 @@ pub fn fn_client_open (
     request_header: &RequestHeader,
     kind: &SecurityTokenRequestType,
     security_mode: &MessageSecurityMode,
-    client_nonce: &Vec<u8>
+    client_nonce: &ByteString
 ) -> Result<ServiceMessage, FnError> {
     let request = OpenSecureChannelRequest {
         request_header: request_header.clone(),
         client_protocol_version: 0,
         request_type: *kind,
         security_mode: *security_mode,
-        client_nonce: ByteString { value: Some(client_nonce.clone())},
+        client_nonce: client_nonce.clone(),
         requested_lifetime: 300000,
     };
     Ok(ServiceMessage::OpenSecureChannelRequest(request))

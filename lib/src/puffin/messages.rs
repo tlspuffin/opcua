@@ -6,7 +6,7 @@ use crate::core::comms::tcp_types::{
 use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    AcknowledgeMessage, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, ErrorMessage, HelloMessage, MessageHeader, MessageSecurityMode, MessageType, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, UAString};
+    AcknowledgeMessage, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, UAString};
 
 use extractable_macro::Extractable;
 use puffin::codec::{Codec, CodecP, Reader};
@@ -246,8 +246,13 @@ pub enum ServiceMessage {
 impl Codec for ServiceMessage {
     fn encode(&self, bytes: &mut Vec<u8>) {
         match *self {
-            ServiceMessage::OpenSecureChannelRequest(ref r) =>
-               r.encode(bytes),
+            ServiceMessage::OpenSecureChannelRequest(ref r) => {
+                let id = NodeId {
+                    namespace: 0,
+                    identifier: Identifier::from(ObjectId::OpenSecureChannelRequest_Encoding_DefaultBinary as u32)
+                };
+                CodecP::encode(&id, bytes);
+                r.encode(bytes)},
             ServiceMessage::OpenSecureChannelResponse(ref r) =>
                r.encode(bytes),
             ServiceMessage::CloseSecureChannelRequest(ref r) =>
