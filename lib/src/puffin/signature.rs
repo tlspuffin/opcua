@@ -131,6 +131,8 @@ define_signature! {
 
     fn_issue
     fn_renew
+    fn_mode_none
+    fn_mode_sign
     fn_sa_token_zero
 
     fn_channel_nonce_1
@@ -156,17 +158,17 @@ define_signature! {
     fn_open_header
     fn_data_to_sign
     fn_data_to_encrypt
-    fn_sign
-    fn_asym_encrypt
-    fn_asym_decrypt
+    //fn_sign
+    //fn_asym_encrypt
+    //fn_asym_decrypt
     fn_open_message
     //fn_get_channel_token
     //fn_get_server_nonce
-    fn_client_mac_key
-    fn_mac_header
-    fn_data_to_mac
-    fn_mac
-    fn_message
+    //fn_client_mac_key
+    //fn_mac_header
+    //fn_data_to_mac
+    //fn_mac
+    //fn_message
 
     fn_request_header
     fn_client_open

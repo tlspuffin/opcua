@@ -9,7 +9,7 @@ use crate::puffin::static_certs::{
     ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
     MALLORY_PRIVATE_KEY, MALLORY_CERTIFICATE, OSCAR_PRIVATE_KEY, OSCAR_CERTIFICATE};
 use crate::puffin::messages::MAX_WIRE_SIZE;
-use crate::types::{Identifier, NodeId, SecurityTokenRequestType};
+use crate::types::{Identifier, MessageSecurityMode, NodeId, SecurityTokenRequestType};
 
 pub fn fn_true() -> Result<bool, FnError> {
     Ok(true)
@@ -88,6 +88,12 @@ pub fn fn_issue() -> Result<SecurityTokenRequestType, FnError> {
 }
 pub fn fn_renew() -> Result<SecurityTokenRequestType, FnError> {
     Ok(SecurityTokenRequestType::Renew)
+}
+pub fn fn_mode_none() -> Result<MessageSecurityMode, FnError> {
+    Ok(MessageSecurityMode::None)
+}
+pub fn fn_mode_sign() -> Result<MessageSecurityMode, FnError> {
+    Ok(MessageSecurityMode::Sign)
 }
 
 // Certificates:

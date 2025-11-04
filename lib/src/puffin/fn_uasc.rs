@@ -7,7 +7,7 @@ use puffin::codec::{CodecP, Reader};
 use puffin::error::Error;
 
 use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
-use crate::prelude::{AsymmetricSecurityHeader, MessageChunk, MessageChunkHeader, SequenceHeader};
+use crate::prelude::{AsymmetricSecurityHeader, MessageChunkHeader, SequenceHeader};
 use crate::puffin::messages::{ChunkType, Message, MessageBody, ServiceMessage};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
@@ -522,15 +522,16 @@ pub fn fn_request_header (
 pub fn fn_client_open (
     request_header: &RequestHeader,
     kind: &SecurityTokenRequestType,
+    security_mode: &MessageSecurityMode,
     client_nonce: &Vec<u8>
 ) -> Result<ServiceMessage, FnError> {
     let request = OpenSecureChannelRequest {
         request_header: request_header.clone(),
         client_protocol_version: 0,
         request_type: *kind,
-        security_mode: MessageSecurityMode::Sign,
+        security_mode: *security_mode,
         client_nonce: ByteString { value: Some(client_nonce.clone())},
-        requested_lifetime: 0,
+        requested_lifetime: 300000,
     };
     Ok(ServiceMessage::OpenSecureChannelRequest(request))
 }
