@@ -37,14 +37,6 @@ pub enum OpcuaVersion {
     V1_5, // with ECC
 }
 
-// Can't use the MessageSecurityMode because it requires the Eq trait.
-#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
-pub enum ChannelMode {
-    None,    // unsecure channel
-    Sign,    // sign-only
-    Encrypt, // sign and encrypt
-}
-
 #[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
 pub enum SessionSecurity {
     /// No Application Authentication, i.e. the server is configured
@@ -65,7 +57,6 @@ pub struct OpcuaDescriptorConfig {
     pub version: OpcuaVersion,
     pub kind: AgentType,
     pub security_policy: CipherSuite,
-    pub mode: ChannelMode,
     pub check: SessionSecurity, /// Default: SSec.
     pub utoken: UserToken,
 }
@@ -76,7 +67,6 @@ impl Default for OpcuaDescriptorConfig {
             version: OpcuaVersion::V1_4,
             kind: AgentType::Server,
             security_policy: CipherSuite::from(SecurityPolicy::Basic256Sha256),
-            mode: ChannelMode::Sign,
             check: SessionSecurity::SSec,
             utoken: UserToken::Certificate,
         }

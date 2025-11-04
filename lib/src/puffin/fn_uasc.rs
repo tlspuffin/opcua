@@ -15,8 +15,8 @@ use crate::types::{ByteString, DiagnosticBits, ExtensionObject, MessageSecurityM
     NodeId, RequestHeader, SecurityTokenRequestType, UAString, UtcTime};
 use crate::types::service_types::{CloseSecureChannelRequest, OpenSecureChannelRequest};
 
-
 use extractable_macro::Extractable;
+
 
 pub fn fn_header (
     message_type: &ChunkType,
@@ -39,12 +39,12 @@ pub fn fn_header (
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Extractable, Hash, PartialEq, Serialize)]
 #[extractable(OpcuaProtocolTypes)]
 pub enum CipherSuite {
-    None,
-    Aes128Sha256RsaOaep,
-    Basic256Sha256,
-    Aes256Sha256RsaPss,
-    Basic128Rsa15,
-    Basic256,
+    None = 0,
+    Aes128Sha256RsaOaep = 1,
+    Basic256Sha256 = 2,
+    Aes256Sha256RsaPss = 3,
+    Basic128Rsa15 = 4,
+    Basic256 = 5
 }
 
 impl CipherSuite {
@@ -87,15 +87,28 @@ impl From<SecurityPolicy> for CipherSuite {
 
 impl CodecP for CipherSuite {
     fn encode(&self, bytes: &mut Vec<u8>) {
-        // let uri = UAString::from(self.security_policy().to_uri());
-        // CodecP::encode(&uri, bytes);
+        bytes.push(*self as u8);
     }
 
     fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
-        // let mut uri: UAString = UAString::null();
-        // uri.read(rd)?;
-        // *self = CipherSuite::from(SecurityPolicy::from_uri(uri.as_ref()));
-        Ok(())
+        let mut value = 0u8;
+        if let Ok(()) = CodecP::read(&mut value, rd){
+            if value > 5 {
+                return Err(Error::Codec("Cannot read a CipherSuite".to_string()))
+            }
+            *self = match value {
+                0 => CipherSuite::None,
+                1 => CipherSuite::Aes128Sha256RsaOaep,
+                2 => CipherSuite::Basic256Sha256,
+                3 => CipherSuite::Aes256Sha256RsaPss,
+                4 => CipherSuite::Basic128Rsa15,
+                5 => CipherSuite::Basic256,
+                _ => CipherSuite::None
+            };
+            Ok(())
+        } else {
+            Err(Error::Codec("Cannot read a CipherSuite".to_string()))
+        }
     }
 }
 

@@ -253,51 +253,83 @@ impl Codec for ServiceMessage {
                 };
                 CodecP::encode(&id, bytes);
                 r.encode(bytes)},
-            ServiceMessage::OpenSecureChannelResponse(ref r) =>
-               r.encode(bytes),
-            ServiceMessage::CloseSecureChannelRequest(ref r) =>
-               r.encode(bytes),
-            ServiceMessage::CloseSecureChannelResponse(ref r) =>
-               r.encode(bytes),
+            ServiceMessage::OpenSecureChannelResponse(ref r) => {
+                let id = NodeId {
+                    namespace: 0,
+                    identifier: Identifier::from(ObjectId::OpenSecureChannelResponse_Encoding_DefaultBinary as u32)
+                };
+                CodecP::encode(&id, bytes);
+                r.encode(bytes)},
+            ServiceMessage::CloseSecureChannelRequest(ref r) => {
+                let id = NodeId {
+                    namespace: 0,
+                    identifier: Identifier::from(ObjectId::CloseSecureChannelRequest_Encoding_DefaultBinary as u32)
+                };
+                CodecP::encode(&id, bytes);
+                r.encode(bytes)},
+            ServiceMessage::CloseSecureChannelResponse(ref r) => {
+                let id = NodeId {
+                    namespace: 0,
+                    identifier: Identifier::from(ObjectId::CloseSecureChannelResponse_Encoding_DefaultBinary as u32)
+                };
+                CodecP::encode(&id, bytes);
+                r.encode(bytes)},
             ServiceMessage::None => ()
         }
     }
 
     fn read(rd: &mut Reader) -> Option<Self> {
-        let mut open_request = OpenSecureChannelRequest {
-            request_header: RequestHeader::default(),
-            client_protocol_version: 0,
-            request_type: SecurityTokenRequestType::Issue,
-            security_mode: MessageSecurityMode::Sign,
-            client_nonce: ByteString::null(),
-            requested_lifetime: 0,
-        };
-        if let Ok(()) = CodecP::read(&mut open_request, rd) {
-            return Some(ServiceMessage::OpenSecureChannelRequest(open_request))
-        };
-        let mut open_response = OpenSecureChannelResponse {
-            response_header: ResponseHeader::null(),
-            server_protocol_version: 0,
-            security_token: ChannelSecurityToken::default(),
-            server_nonce: ByteString::null()
-        };
-        if let Ok(()) = CodecP::read(&mut open_response, rd) {
-            return Some(ServiceMessage::OpenSecureChannelResponse(open_response))
-        }
-        let mut close_request = CloseSecureChannelRequest {
-            request_header: RequestHeader::default()
-        };
-        if let Ok(()) = CodecP::read(&mut close_request, rd) {
-            return Some(ServiceMessage::CloseSecureChannelRequest(close_request))
-        };
-        let mut close_response = CloseSecureChannelResponse {
-            response_header: ResponseHeader::null()
-        };
-        if let Ok(()) = CodecP::read(&mut close_response, rd) {
-            return Some(ServiceMessage::CloseSecureChannelResponse(close_response))
-        }
-        None
+        let mut node_id = NodeId::null();
+        if let Ok(()) = CodecP::read(&mut node_id, rd) {
+            if let Identifier::Numeric(id) = mode_id {
+                match id {
+                    Identifier::from(ObjectId::OpenSecureChannelRequest_Encoding_DefaultBinary as u32) =>
+                        Some(ServiceMessage::None),
+    
+    
+    
+                    _ => Some(ServiceMessage::None)
+                }
+
+            } else {None}
+        } else {None}
     }
+
+
+        // let mut open_request = OpenSecureChannelRequest {
+        //     request_header: RequestHeader::default(),
+        //     client_protocol_version: 0,
+        //     request_type: SecurityTokenRequestType::Issue,
+        //     security_mode: MessageSecurityMode::Sign,
+        //     client_nonce: ByteString::null(),
+        //     requested_lifetime: 0,
+        // };
+        // if let Ok(()) = CodecP::read(&mut open_request, rd) {
+        //     return Some(ServiceMessage::OpenSecureChannelRequest(open_request))
+        // };
+        // let mut open_response = OpenSecureChannelResponse {
+        //     response_header: ResponseHeader::null(),
+        //     server_protocol_version: 0,
+        //     security_token: ChannelSecurityToken::default(),
+        //     server_nonce: ByteString::null()
+        // };
+        // if let Ok(()) = CodecP::read(&mut open_response, rd) {
+        //     return Some(ServiceMessage::OpenSecureChannelResponse(open_response))
+        // }
+        // let mut close_request = CloseSecureChannelRequest {
+        //     request_header: RequestHeader::default()
+        // };
+        // if let Ok(()) = CodecP::read(&mut close_request, rd) {
+        //     return Some(ServiceMessage::CloseSecureChannelRequest(close_request))
+        // };
+        // let mut close_response = CloseSecureChannelResponse {
+        //     response_header: ResponseHeader::null()
+        // };
+        // if let Ok(()) = CodecP::read(&mut close_response, rd) {
+        //     return Some(ServiceMessage::CloseSecureChannelResponse(close_response))
+        // }
+        // None
+    // }
 }
 
 #[derive(Debug, Clone, Extractable)]
