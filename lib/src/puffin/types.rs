@@ -16,7 +16,7 @@ use puffin::protocol::{
 //use puffin::put::PutDescriptor;
 //use puffin::trace::{Knowledge, Source, Trace};
 //use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec};
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 
 use crate::crypto::SecurityPolicy;
 use crate::puffin::signature::fn_impl::CipherSuite;
@@ -24,28 +24,28 @@ use crate::puffin::signature::OPCUA_SIGNATURE;
 
 // PUT configuration descriptor:
 
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
 pub enum AgentType {
     Client,
     Server,
     User,
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
 pub enum OpcuaVersion {
     V1_4, // only RSA
     V1_5, // with ECC
 }
 
 // Can't use the MessageSecurityMode because it requires the Eq trait.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
 pub enum ChannelMode {
     None,    // unsecure channel
     Sign,    // sign-only
     Encrypt, // sign and encrypt
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
 pub enum SessionSecurity {
     /// No Application Authentication, i.e. the server is configured
     /// to accept all client certificates and only use them for message security.
@@ -53,14 +53,14 @@ pub enum SessionSecurity {
     SSec,  // Normal Session Security
 }
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
 pub enum UserToken {
     Anonymous,
     Password,
     Certificate,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
 pub struct OpcuaDescriptorConfig {
     pub version: OpcuaVersion,
     pub kind: AgentType,

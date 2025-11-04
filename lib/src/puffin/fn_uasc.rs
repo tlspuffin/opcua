@@ -7,7 +7,7 @@ use puffin::codec::{CodecP, Reader};
 use puffin::error::Error;
 
 use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
-use crate::prelude::{AsymmetricSecurityHeader, MessageChunkHeader, SequenceHeader};
+use crate::prelude::{AsymmetricSecurityHeader, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader, MESSAGE_CHUNK_HEADER_SIZE};
 use crate::puffin::messages::{ChunkType, Message, MessageBody, ServiceMessage};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
@@ -87,14 +87,14 @@ impl From<SecurityPolicy> for CipherSuite {
 
 impl CodecP for CipherSuite {
     fn encode(&self, bytes: &mut Vec<u8>) {
-        let uri = UAString::from(self.security_policy().to_uri());
-        CodecP::encode(&uri, bytes);
+        // let uri = UAString::from(self.security_policy().to_uri());
+        // CodecP::encode(&uri, bytes);
     }
 
     fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
-        let mut uri: UAString = UAString::null();
-        uri.read(rd)?;
-        *self = CipherSuite::from(SecurityPolicy::from_uri(uri.as_ref()));
+        // let mut uri: UAString = UAString::null();
+        // uri.read(rd)?;
+        // *self = CipherSuite::from(SecurityPolicy::from_uri(uri.as_ref()));
         Ok(())
     }
 }
@@ -152,13 +152,28 @@ fn calculate_plain_text_block_size (
 // The following functions are a complete revrite of SecureChannel::asymmetric_sign_and_encrypt()
 // in crate::core::comms::secure_channel::SecureChannel.
 
+pub fn fn_dummy_chunker_header() -> Result<MessageChunkHeader, FnError> {
+    Ok(MessageChunkHeader {
+        message_type: MessageChunkType::Message,
+        is_final: MessageIsFinalType::Final,
+        message_size: MESSAGE_CHUNK_HEADER_SIZE as u32,
+        secure_channel_id: 0,
+    })
+}
+
 pub fn fn_open_header(
     chunk_header: &MessageChunkHeader,
-    cipher_suite: &CipherSuite,
-    sender_certificate: &ByteString,
-    receiver_certificate: &ByteString,
-    data: &Vec<u8>
+    // cipher_suite: &CipherSuite,
+    // sender_certificate: &ByteString,
+    // receiver_certificate: &ByteString,
+    // data: &Vec<u8>
 ) -> Result<MessageChunkHeader, FnError> {
+
+    let cipher_suite = CipherSuite::Aes128Sha256RsaOaep;
+    // let chunk_header = fn_dummy_chunker_header()?;
+    let sender_certificate = ByteString::null();
+    let receiver_certificate = ByteString::null();
+    let data = Vec::<u8>::new();
 
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
@@ -492,7 +507,7 @@ pub fn fn_mac (
 pub fn fn_open_message (
     header: &MessageChunkHeader,
     data: &Vec<u8>,
-) -> Result<Message, FnError> {
+) -> Result<Message, FnError> { 
     Ok(Message::Open (header.clone(), data.clone()))
 }
 
