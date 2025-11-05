@@ -176,17 +176,18 @@ pub fn fn_dummy_chunker_header() -> Result<MessageChunkHeader, FnError> {
 
 pub fn fn_open_header(
     chunk_header: &MessageChunkHeader,
-    // cipher_suite: &CipherSuite,
-    // sender_certificate: &ByteString,
-    // receiver_certificate: &ByteString,
-    // data: &Vec<u8>
+    cipher_suite: &CipherSuite,
+    sender_certificate: &ByteString,
+    receiver_certificate: &ByteString,
+    data: &Vec<u8>
 ) -> Result<MessageChunkHeader, FnError> {
 
-    let cipher_suite = CipherSuite::Aes128Sha256RsaOaep;
+    // /!\ DEBUG ONLY:
+    // let cipher_suite = CipherSuite::Aes128Sha256RsaOaep;
     // let chunk_header = fn_dummy_chunker_header()?;
-    let sender_certificate = ByteString::null();
-    let receiver_certificate = ByteString::null();
-    let data = Vec::<u8>::new();
+    // let sender_certificate = ByteString::null();
+    // let receiver_certificate = ByteString::null();
+    // let data = Vec::<u8>::new();
 
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();

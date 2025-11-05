@@ -229,18 +229,16 @@ impl ProtocolMessage<OpcuaProtocolTypes, Message> for Message {
 The enum type [`crate::core::supported_message::SupportedMessage`] defines all [`ProtocolMessage`],
 i.e. all possible OPC UA service requests before security is applied to them,
 and all possible responses after security has been removed from them.
-/!\ We use here a simplified enum type, for a first try, called a [`ServiceMessage`]
+/!\ We use here a simplified enum type, called a [`ServiceMessage`]
 */
 #[derive(Debug, PartialEq, Clone, Extractable)]
 #[extractable(OpcuaProtocolTypes)]
 pub enum ServiceMessage {
-    // /!\ The trait is not implemented for Box<...>!
-    // /!\ We may have to add the SecureChannel data.
+    None,
     OpenSecureChannelRequest(OpenSecureChannelRequest),
     OpenSecureChannelResponse(OpenSecureChannelResponse),
     CloseSecureChannelRequest(CloseSecureChannelRequest),
     CloseSecureChannelResponse(CloseSecureChannelResponse),
-    None
 }
 
 impl Codec for ServiceMessage {
@@ -281,55 +279,57 @@ impl Codec for ServiceMessage {
     fn read(rd: &mut Reader) -> Option<Self> {
         let mut node_id = NodeId::null();
         if let Ok(()) = CodecP::read(&mut node_id, rd) {
-            if let Identifier::Numeric(id) = mode_id {
-                match id {
-                    Identifier::from(ObjectId::OpenSecureChannelRequest_Encoding_DefaultBinary as u32) =>
-                        Some(ServiceMessage::None),
-    
-    
-    
-                    _ => Some(ServiceMessage::None)
+            if let Identifier::Numeric(id) = node_id.identifier {
+                if let Ok(obj_id) = ObjectId::try_from(id) {
+                    match obj_id {
+                        ObjectId::OpenSecureChannelRequest_Encoding_DefaultBinary => {
+                            let mut open_request = OpenSecureChannelRequest {
+                                request_header: RequestHeader::default(),
+                                client_protocol_version: 0,
+                                request_type: SecurityTokenRequestType::Issue,
+                                security_mode: MessageSecurityMode::Sign,
+                                client_nonce: ByteString::null(),
+                                requested_lifetime: 0,
+                            };
+                            if let Ok(()) = CodecP::read(&mut open_request, rd) {
+                                return Some(ServiceMessage::OpenSecureChannelRequest(open_request))
+                            }
+                        },
+                        ObjectId::OpenSecureChannelResponse_Encoding_DefaultBinary => {
+                            let mut open_response = OpenSecureChannelResponse {
+                                response_header: ResponseHeader::null(),
+                                server_protocol_version: 0,
+                                security_token: ChannelSecurityToken::default(),
+                                server_nonce: ByteString::null()
+                            };
+                            if let Ok(()) = CodecP::read(&mut open_response, rd) {
+                                return Some(ServiceMessage::OpenSecureChannelResponse(open_response))
+                            }
+                        },
+                        ObjectId::CloseSecureChannelRequest_Encoding_DefaultBinary => {
+                            let mut close_request = CloseSecureChannelRequest {
+                                request_header: RequestHeader::default()
+                            };
+                            if let Ok(()) = CodecP::read(&mut close_request, rd) {
+                                return Some(ServiceMessage::CloseSecureChannelRequest(close_request))
+                            }
+                        },
+                        ObjectId::CloseSecureChannelResponse_Encoding_DefaultBinary => {
+                            let mut close_response = CloseSecureChannelResponse {
+                                response_header: ResponseHeader::null()
+                            };
+                            if let Ok(()) = CodecP::read(&mut close_response, rd) {
+                                return Some(ServiceMessage::CloseSecureChannelResponse(close_response))
+                            }
+                        }
+                        _ => return Some(ServiceMessage::None),
+                    }
                 }
-
-            } else {None}
-        } else {None}
+            }
+        };
+        Some(ServiceMessage::None)
     }
 
-
-        // let mut open_request = OpenSecureChannelRequest {
-        //     request_header: RequestHeader::default(),
-        //     client_protocol_version: 0,
-        //     request_type: SecurityTokenRequestType::Issue,
-        //     security_mode: MessageSecurityMode::Sign,
-        //     client_nonce: ByteString::null(),
-        //     requested_lifetime: 0,
-        // };
-        // if let Ok(()) = CodecP::read(&mut open_request, rd) {
-        //     return Some(ServiceMessage::OpenSecureChannelRequest(open_request))
-        // };
-        // let mut open_response = OpenSecureChannelResponse {
-        //     response_header: ResponseHeader::null(),
-        //     server_protocol_version: 0,
-        //     security_token: ChannelSecurityToken::default(),
-        //     server_nonce: ByteString::null()
-        // };
-        // if let Ok(()) = CodecP::read(&mut open_response, rd) {
-        //     return Some(ServiceMessage::OpenSecureChannelResponse(open_response))
-        // }
-        // let mut close_request = CloseSecureChannelRequest {
-        //     request_header: RequestHeader::default()
-        // };
-        // if let Ok(()) = CodecP::read(&mut close_request, rd) {
-        //     return Some(ServiceMessage::CloseSecureChannelRequest(close_request))
-        // };
-        // let mut close_response = CloseSecureChannelResponse {
-        //     response_header: ResponseHeader::null()
-        // };
-        // if let Ok(()) = CodecP::read(&mut close_response, rd) {
-        //     return Some(ServiceMessage::CloseSecureChannelResponse(close_response))
-        // }
-        // None
-    // }
 }
 
 #[derive(Debug, Clone, Extractable)]
