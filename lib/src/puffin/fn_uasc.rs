@@ -8,7 +8,7 @@ use puffin::error::Error;
 
 use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
 use crate::prelude::{AsymmetricSecurityHeader, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader, MESSAGE_CHUNK_HEADER_SIZE};
-use crate::puffin::messages::{ChunkType, Message, MessageBody, ServiceMessage};
+use crate::puffin::messages::{ChunkType, DecryptedBody, EncryptedBody, Message, MessageBody, ServiceMessage};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{ByteString, DiagnosticBits, ExtensionObject, MessageSecurityMode,
@@ -235,6 +235,7 @@ pub fn fn_open_header(
     Ok(header)
 }
 
+
 pub fn fn_data_to_sign (
     header: &Vec<u8>,
     cipher_suite: &CipherSuite,
@@ -283,6 +284,7 @@ pub fn fn_data_to_sign (
     Ok(buffer)
 }
 
+
 pub fn fn_sign(
     data: &Vec<u8>,
     cipher_suite: &CipherSuite,
@@ -306,6 +308,7 @@ pub fn fn_sign(
         .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
     Ok(signature)
 }
+
 
 pub fn fn_data_to_encrypt (
     cipher_suite: &CipherSuite,
@@ -342,17 +345,18 @@ pub fn fn_data_to_encrypt (
         }
     } else {
         buffer.extend_from_slice(&request);
-        buffer.extend_from_slice(&signature);
-     }
+    }
+    buffer.extend_from_slice(&signature);
     Ok(buffer)
 }
+
 
 pub fn fn_asym_encrypt (
     cipher_suite: &CipherSuite,
     sender_certificate: &ByteString,
     receiver_certificate: &ByteString,
     data: &Vec<u8>,
-) -> Result<Vec<u8>, FnError> {
+) -> Result<EncryptedBody, FnError> {
 
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
@@ -414,48 +418,91 @@ pub fn fn_asym_encrypt (
         CodecP::encode(&security_header, &mut buffer);
         buffer.extend_from_slice(&data);
      };
-    Ok(buffer)
+    Ok(EncryptedBody{cipher_text: buffer})
 }
 
+
 pub fn fn_asym_decrypt(
-    data: &Vec<u8>,
+    body: &EncryptedBody,
     private_key: &Vec<u8>
-) -> Result<Vec<u8>, FnError> {
+) -> Result<DecryptedBody, FnError> {
 
     // Read asymmetric security header:
-    let mut rd = Reader::init(data);
+    let mut rd = Reader::init(&body.cipher_text);
     let mut security_header = AsymmetricSecurityHeader::none();
     CodecP::read(&mut security_header, &mut rd)
-    .map_err( |_| {FnError::Crypto("Error reading asymmetric security header before decryption".to_string())})?;
+        .map_err( |_| {FnError::Crypto("Error reading asymmetric security header before decryption".to_string())})?;
     let security_policy = SecurityPolicy::from_uri(security_header.security_policy_uri.as_ref());
     if (security_policy == SecurityPolicy::None) || (security_policy == SecurityPolicy::Unknown) {
         return Err(FnError::Crypto("Cannot decrypt with no or an unknown security policy".to_string()))
     }
 
     // decrypt payload:
-    let encrypted_range = security_header.byte_len() .. data.len();
+    let encrypted_range = security_header.byte_len() .. body.cipher_text.len();
     let encrypted_size= encrypted_range.len();
     let mut decrypted_tmp = vec![0u8; encrypted_size];
     let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
-    .map(|value|{PrivateKey {value}})
-    .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
+        .map(|value|{PrivateKey {value}})
+        .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
     let decrypted_size = security_policy.asymmetric_decrypt(&decryption_key,
-        &data[encrypted_range],
+        &&body.cipher_text[encrypted_range],
          &mut decrypted_tmp)
-    .map_err( |_| {FnError::Crypto("Error during asymmetric decryption".to_string())})?;
-    Ok(decrypted_tmp[0..decrypted_size].to_vec())
+        .map_err( |_| {FnError::Crypto("Error during asymmetric decryption".to_string())})?;
+
+    let mut rd = Reader::init(&decrypted_tmp[0..decrypted_size]);
+    let mut decrypted_body = DecryptedBody::default();
+    decrypted_body.sequence_header.read(&mut rd)
+        .map_err(|e| FnError::Codec(format!("fn_asym_decrypt cannot read sequence header: {e}")))?;
+    decrypted_body.request.read(& mut rd)
+        .map_err(|e| FnError::Codec(format!("fn_asym_decrypt cannot read message: {e}")))?;
+
+    // suppressed padding:
+    let mut padding_byte: u8 = 0;
+    padding_byte.read(&mut rd)
+        .map_err(|e| FnError::Crypto(format!("fn_asym_decrypt cannot read padding: {e}")))?;
+    let mut byte = padding_byte;
+    if decryption_key.size() <= 2048 {
+        for _ in 0..padding_byte {
+            byte.read(&mut rd).map_err(|e| FnError::Codec(format!("fn_asym_decrypt, error in padding: {e}")))?;
+            if byte != padding_byte {
+                return Err(FnError::Crypto(format!("fn_asym_decrypt, error in padding, found {}, expected {}",
+                        byte, padding_byte)))};
+        }
+    } else {
+        let mut padding_size: u32 = 0;
+        byte.read(&mut rd).map_err(|e| FnError::Codec(format!("fn_asym_decrypt, error in padding: {e}")))?;
+        while byte == padding_byte {
+            padding_size += 1;
+            byte.read(&mut rd).map_err(|e| FnError::Codec(format!("fn_asym_decrypt, error in padding: {e}")))?;
+        }
+        if padding_size != ((byte as u32) << 8) + (padding_byte as u32) {
+            return Err(FnError::Crypto("fn_asym_decrypt, error in padding".to_string()))
+        }
+    };
+    decrypted_body.signature.read(&mut rd)
+        .map_err(|e| FnError::Codec(format!("fn_asym_decrypt cannot read signature: {e}")))?;
+    Ok(decrypted_body)
 }
 
+
 pub fn fn_get_channel_token(
-    _open_response: &Vec<u8>
+    open_response: &DecryptedBody
 ) -> Result<u32, FnError> {
-    Err(FnError::Unknown("Unimplemented".to_string()))
+    if let ServiceMessage::OpenSecureChannelResponse(response) = &open_response.request {
+        Ok(response.security_token.token_id)
+    } else {
+        Err(FnError::Unknown("Cannot get channel token id".to_string()))
+    }
 }
 
 pub fn fn_get_server_nonce(
-    _open_response: &Vec<u8>
+    open_response: &DecryptedBody
 ) -> Result<ByteString, FnError> {
-    Err(FnError::Unknown("Unimplemented".to_string()))
+    if let ServiceMessage::OpenSecureChannelResponse(response) = &open_response.request {
+        Ok(response.server_nonce.clone())
+    } else {
+        Err(FnError::Unknown("Cannot get channel nonce".to_string()))
+    }
 }
 
 pub fn fn_client_mac_key(
@@ -520,9 +567,9 @@ pub fn fn_mac (
 
 pub fn fn_open_message (
     header: &MessageChunkHeader,
-    data: &Vec<u8>,
+    body: &EncryptedBody,
 ) -> Result<Message, FnError> { 
-    Ok(Message::Open (header.clone(), data.clone()))
+    Ok(Message::Open (header.clone(), body.clone()))
 }
 
 pub fn fn_message (

@@ -106,7 +106,7 @@ pub enum Message {
     Acknowledge(AcknowledgeMessage),
     Error(ErrorMessage),
     Reverse(ReverseHelloMessage),
-    Open(MessageChunkHeader, #[extractable_ignore] Vec<u8>),
+    Open(MessageChunkHeader, EncryptedBody),
     Chunk(MessageChunkHeader, MessageBody),
 }
 
@@ -117,9 +117,9 @@ impl Codec for Message {
             Message::Acknowledge(ref a) => a.encode(bytes),
             Message::Error(ref e) => e.encode(bytes),
             Message::Reverse(ref r) => r.encode(bytes),
-            Message::Open(ref h, ref c) => {
-                h.encode(bytes);
-                bytes.extend_from_slice(&c);
+            Message::Open(ref header, ref body) => {
+                header.encode(bytes);
+                body.encode(bytes);
             }
             Message::Chunk(ref header, ref body ) => {
                 header.encode(bytes);
@@ -178,7 +178,7 @@ impl Codec for Message {
                     if size < 1 { return None }
                     let mut body = vec![0u8; size];
                     if let Ok(()) = rd.read_exact(&mut body) {
-                        Some(Message::Open(header, body))
+                        Some(Message::Open(header, EncryptedBody {cipher_text: body}))
                     } else {None}
                 } else {None}
             }
@@ -224,6 +224,30 @@ impl ProtocolMessage<OpcuaProtocolTypes, Message> for Message {
     }
 }
 
+#[derive(Debug, Clone, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
+pub struct EncryptedBody {
+    pub cipher_text: Vec<u8>
+}
+
+impl Default for EncryptedBody {
+    fn default() -> EncryptedBody {
+        EncryptedBody{
+            cipher_text: vec![]
+        }
+    }
+}
+
+impl CodecP for EncryptedBody {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        bytes.extend_from_slice(&self.cipher_text);
+    }
+
+    fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
+        self.cipher_text.read(rd)?;
+        Ok(())
+    }
+}
 
 /**
 The enum type [`crate::core::supported_message::SupportedMessage`] defines all [`ProtocolMessage`],
@@ -334,6 +358,42 @@ impl Codec for ServiceMessage {
 
 #[derive(Debug, Clone, Extractable)]
 #[extractable(OpcuaProtocolTypes)]
+pub struct DecryptedBody {
+    pub sequence_header: SequenceHeader,
+    pub request: ServiceMessage,
+    pub signature: Vec<u8>
+}
+
+impl Default for DecryptedBody {
+    fn default() -> DecryptedBody {
+        DecryptedBody{
+            sequence_header: SequenceHeader {
+                sequence_number: 0,
+                request_id: 0
+            },
+            request: ServiceMessage::None,
+            signature: vec![]
+        }
+    }
+}
+
+impl CodecP for DecryptedBody {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        CodecP::encode(&self.sequence_header, bytes);
+        CodecP::encode(&self.request, bytes);
+        bytes.extend_from_slice(&self.signature);
+    }
+
+    fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
+        self.sequence_header.read(rd)?;
+        self.request.read(rd)?;
+        self.signature.read(rd)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct MessageBody {
     pub channel_token_id: u32,
     pub sequence_header: SequenceHeader,
@@ -359,6 +419,7 @@ impl CodecP for MessageBody {
     fn encode(&self, bytes: &mut Vec<u8>) {
         CodecP::encode(&self.channel_token_id, bytes);
         CodecP::encode(&self.sequence_header, bytes);
+        CodecP::encode(&self.request, bytes);
         bytes.extend_from_slice(&self.mac);
     }
 

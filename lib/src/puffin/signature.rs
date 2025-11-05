@@ -112,22 +112,22 @@ define_signature! {
     fn_abort
 
     fn_null_cert
-    // fn_alice_cert
+    fn_alice_cert
     fn_bob_cert
     fn_mallory_cert
-    // fn_oscar_cert
+    fn_oscar_cert
 
-    // fn_alice_sk
-    // fn_bob_sk
+    fn_alice_sk
+    fn_bob_sk
     fn_mallory_sk
-    // fn_oscar_sk
+    fn_oscar_sk
 
-    // fn_security_policy_none
-    // fn_aes128sha256_rsa_oaep
+    fn_security_policy_none
+    fn_aes128sha256_rsa_oaep
     fn_basic256sha256
-    // fn_aes256sha256_rsa_pss
-    // fn_basic128_rsa_15
-    // fn_basic256
+    fn_aes256sha256_rsa_pss
+    fn_basic128_rsa_15
+    fn_basic256
 
     fn_issue
     fn_renew
@@ -160,17 +160,17 @@ define_signature! {
     fn_no_bytes
     fn_data_to_sign
     fn_data_to_encrypt
-    //fn_sign
-    //fn_asym_encrypt
-    //fn_asym_decrypt
+    fn_sign
+    fn_asym_encrypt
+    fn_asym_decrypt
     fn_open_message
-    //fn_get_channel_token
-    //fn_get_server_nonce
-    //fn_client_mac_key
-    //fn_mac_header
-    //fn_data_to_mac
-    //fn_mac
-    //fn_message
+    fn_get_channel_token
+    fn_get_server_nonce
+    fn_client_mac_key
+    fn_mac_header
+    fn_data_to_mac
+    fn_mac
+    fn_message
 
     fn_request_header
     fn_client_open
