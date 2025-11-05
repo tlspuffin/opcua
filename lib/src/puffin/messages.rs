@@ -514,20 +514,26 @@ impl MessageDeframer {
         if message_size > self.used {
             return BufferContent::Partial
         }
-        let head: [u8; 4] = self.buffer[0..4].try_into().unwrap(); //checked by MessageHeader::read
-        let message_head = str::from_utf8(&head).unwrap(); //checked by MessageHeader::read
+        let message_debug = format!("{:?}, {:?} bytes", message_header.message_type, message_size);
         let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
         if let Some(msg) = Codec::read(&mut rd) {
-            log::warn!("New UA TCP message received! ({}, {} bytes)", message_head, message_size);
+            log::warn!("New UA TCP message received! ({})", &message_debug);
+            let result = {
+                if let Message::Chunk(ref head,_) = msg {
+                    if head.is_final == MessageIsFinalType::Intermediate {
+                        BufferContent::Partial
+                    } else {
+                        BufferContent::Valid
+                    }
+                } else {
+                    BufferContent::Valid
+                }
+            };
             self.frames.push_back(msg);
             self.consume(message_size);
-            if (&head[0..3] == CHUNK_MESSAGE) && (head[3] == CHUNK_INTERMEDIATE) {
-                return BufferContent::Partial
-            } else {
-                return BufferContent::Valid
-            }
+            return result
         } else {
-            log::warn!("Error reading an UA TCP message! ({}, {} bytes)", message_head, message_size);
+            log::warn!("Error reading an UA TCP message! ({})", &message_debug);
             return BufferContent::Invalid
         }
     }
