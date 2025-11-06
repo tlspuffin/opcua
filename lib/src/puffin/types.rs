@@ -7,37 +7,29 @@ use puffin::algebra::AnyMatcher;
 use puffin::error::Error;
 use puffin::trace::{Knowledge, Source};
 
-use puffin::protocol::{
-    //EvaluatedTerm,
-    Extractable, //OpaqueProtocolMessage, OpaqueProtocolMessageFlight,
-    //ProtocolBehavior, ProtocolMessage, ProtocolMessageDeframer, ProtocolMessageFlight,
-    ProtocolTypes,
-};
-//use puffin::put::PutDescriptor;
-//use puffin::trace::{Knowledge, Source, Trace};
-//use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec};
+use puffin::protocol::{Extractable, ProtocolTypes};
+
 use serde_derive::{Deserialize, Serialize};
 
-use crate::crypto::SecurityPolicy;
 use crate::puffin::signature::fn_impl::CipherSuite;
 use crate::puffin::signature::OPCUA_SIGNATURE;
 
 // PUT configuration descriptor:
 
-#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub enum AgentType {
     Client,
     Server,
     User,
 }
 
-#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub enum OpcuaVersion {
     V1_4, // only RSA
     V1_5, // with ECC
 }
 
-#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub enum SessionSecurity {
     /// No Application Authentication, i.e. the server is configured
     /// to accept all client certificates and only use them for message security.
@@ -45,14 +37,14 @@ pub enum SessionSecurity {
     SSec,  // Normal Session Security
 }
 
-#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub enum UserToken {
     Anonymous,
     Password,
     Certificate,
 }
 
-#[derive(Clone, Debug, Hash, serde_derive::Serialize, serde_derive::Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
 pub struct OpcuaDescriptorConfig {
     pub version: OpcuaVersion,
     pub kind: AgentType,
@@ -66,7 +58,7 @@ impl Default for OpcuaDescriptorConfig {
         Self {
             version: OpcuaVersion::V1_4,
             kind: AgentType::Server,
-            security_policy: CipherSuite::from(SecurityPolicy::Basic256Sha256),
+            security_policy: CipherSuite::Basic256Sha256,
             check: SessionSecurity::SSec,
             utoken: UserToken::Certificate,
         }

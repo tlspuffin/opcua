@@ -28,17 +28,12 @@ use super::{
     security_header::{AsymmetricSecurityHeader, SecurityHeader, SymmetricSecurityHeader},
 };
 
-use crate::puffin::types::OpcuaProtocolTypes;
-use puffin::{codec, dummy_codec, dummy_extract_knowledge, dummy_extract_knowledge_codec, error::Error,
-    protocol::Extractable, protocol::ProtocolTypes, trace::Knowledge, trace::Source};
-
 #[derive(Debug, PartialEq)]
 pub enum Role {
     Unknown,
     Client,
     Server,
 }
-dummy_extract_knowledge_codec!(OpcuaProtocolTypes, Role);
 
 /// Holds all of the security information related to this session
 #[derive(Debug)]

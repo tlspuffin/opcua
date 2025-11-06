@@ -2,7 +2,6 @@
 
 use puffin::algebra::error::FnError;
 
-use crate::core::comms::secure_channel::Role;
 use crate::puffin::messages::ChunkType;
 use crate::puffin::signature::fn_impl::CipherSuite;
 use crate::puffin::static_certs::{
@@ -50,13 +49,6 @@ pub fn fn_seq_9() -> Result<u32, FnError> {
 }
 pub fn fn_seq_10() -> Result<u32, FnError> {
     Ok(10)
-}
-
-pub fn fn_client() -> Result<Role, FnError> {
-    Ok(Role::Client)
-}
-pub fn fn_server() -> Result<Role, FnError> {
-    Ok(Role::Server)
 }
 
 pub fn fn_default_size() -> Result<u32, FnError> {
