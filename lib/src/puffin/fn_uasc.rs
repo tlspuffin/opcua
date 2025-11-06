@@ -511,6 +511,9 @@ pub fn fn_client_mac_key(
     server_nonce: &ByteString
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
+    if security_policy == SecurityPolicy::None {
+        return Err(FnError::Crypto("Cannot compute MAC for SecurityPolicy::None".to_string()))
+    };
     let nonce_length = security_policy.secure_channel_nonce_length();
     if (client_nonce.as_ref().len() != nonce_length) || (server_nonce.as_ref().len() != nonce_length) {
         return Err(FnError::Crypto("Cannot compute symmetric keys: nonce size is incorrect".to_string()))
@@ -554,10 +557,10 @@ pub fn fn_mac (
     let security_policy = cipher_suite.security_policy();
     if security_policy == SecurityPolicy::None {
         return Err(FnError::Crypto("Cannot compute MAC for SecurityPolicy::None".to_string()))
-    }
+    };
     if mac_key.len() != security_policy.derived_signature_key_size() {
         return Err(FnError::Crypto("Cannot compute MAC: mac key size is incorrect".to_string()))
-    }
+    };
     let mac_length: usize = security_policy.symmetric_signature_size();
     let mut mac = vec![0u8; mac_length];
     security_policy.symmetric_sign(mac_key, &data, &mut mac)
