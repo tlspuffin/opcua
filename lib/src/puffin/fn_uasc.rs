@@ -165,7 +165,7 @@ fn calculate_plain_text_block_size (
 // The following functions are a complete revrite of SecureChannel::asymmetric_sign_and_encrypt()
 // in crate::core::comms::secure_channel::SecureChannel.
 
-pub fn fn_dummy_chunker_header() -> Result<MessageChunkHeader, FnError> {
+pub fn fn_dummy_chunk_header() -> Result<MessageChunkHeader, FnError> {
     Ok(MessageChunkHeader {
         message_type: MessageChunkType::Message,
         is_final: MessageIsFinalType::Final,

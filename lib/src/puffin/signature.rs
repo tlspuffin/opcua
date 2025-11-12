@@ -176,4 +176,6 @@ define_signature! {
     fn_client_open
     fn_client_close
 
+    fn_dummy_chunk_header
+
 }
