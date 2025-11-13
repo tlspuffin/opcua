@@ -482,9 +482,9 @@ pub fn fn_decrypted_body(
                 return Err(FnError::Crypto("fn_decrypted_body, error in padding".to_string()))
             }
         };
+        decrypted_body.signature.read(&mut rd)
+            .map_err(|e| FnError::Codec(format!("fn_decrypted_body cannot read signature: {e}")))?;
     };
-    decrypted_body.signature.read(&mut rd)
-        .map_err(|e| FnError::Codec(format!("fn_decrypted_body cannot read signature: {e}")))?;
     Ok(decrypted_body)
 }
 

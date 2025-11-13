@@ -107,6 +107,8 @@ pub enum Message {
     Error(ErrorMessage),
     Reverse(ReverseHelloMessage),
     Open(MessageChunkHeader, EncryptedBody),
+    // without #[extractable_ignore] Trying to extract a dummy type: u8 (repeated many times)
+    // with    #[extractable_ignore] EncryptedBody: error Unable to find variable (Some(Agent(AgentName(0))), 1)[None]/EncryptedBody!
     Chunk(MessageChunkHeader, MessageBody),
 }
 
@@ -417,7 +419,11 @@ impl Default for MessageBody {
 
 impl CodecP for MessageBody {
     fn encode(&self, bytes: &mut Vec<u8>) {
-        CodecP::encode(&self.channel_token_id, bytes);
+        log::warn!("Encode MessageBody, channel_token_id = {}", &self.channel_token_id);
+        // CodecP::encode(&self.channel_token_id, bytes); // /!\ This is encoded in BIG ENDIAN !!!
+        // puffin::codec::Codec::encode(&self.channel_token_id, bytes); /!\ This is encoded in BIG ENDIAN !!
+        //self.channel_token_id.encode(bytes);
+        let _ = crate::types::BinaryEncoder::encode(&self.channel_token_id, bytes);
         CodecP::encode(&self.sequence_header, bytes);
         CodecP::encode(&self.request, bytes);
         bytes.extend_from_slice(&self.mac);
