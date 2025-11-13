@@ -103,7 +103,7 @@ impl CodecP for CipherSuite {
                 3 => CipherSuite::Aes256Sha256RsaPss,
                 4 => CipherSuite::Basic128Rsa15,
                 5 => CipherSuite::Basic256,
-                _ => CipherSuite::None
+                _ => { return Err(Error::Codec("Cannot read a CipherSuite".to_string())); }
             };
             Ok(())
         } else {
@@ -483,7 +483,6 @@ pub fn fn_asym_decrypt(
         .map_err(|e| FnError::Codec(format!("fn_asym_decrypt cannot read signature: {e}")))?;
     Ok(decrypted_body)
 }
-
 
 pub fn fn_get_channel_token(
     open_response: &DecryptedBody
