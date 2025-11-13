@@ -163,6 +163,7 @@ define_signature! {
     fn_sign
     fn_asym_encrypt
     fn_asym_decrypt
+    fn_decrypted_body
     fn_open_message
     fn_get_channel_token
     fn_get_server_nonce
@@ -175,7 +176,4 @@ define_signature! {
     fn_request_header
     fn_client_open
     fn_client_close
-
-    fn_dummy_chunk_header
-
 }
