@@ -7,7 +7,7 @@ use puffin::codec::{CodecP, Reader};
 use puffin::error::Error;
 
 use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
-use crate::prelude::{AsymmetricSecurityHeader, MessageChunkHeader, SequenceHeader};
+use crate::prelude::{AsymmetricSecurityHeader, MessageChunkHeader, SequenceHeader, SymmetricSecurityHeader};
 use crate::puffin::messages::{ChunkType, DecryptedBody, EncryptedBody, Message, MessageBody, ServiceMessage};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
@@ -133,13 +133,13 @@ pub fn fn_request(
  }
 
 pub fn fn_body(
-    channel_token_id: &u32,
+    token_id: &SymmetricSecurityHeader,
     sequence: &SequenceHeader,
     service: &ServiceMessage,
     mac: &Vec<u8>
  ) -> Result<MessageBody, FnError> {
     Ok(MessageBody{
-        channel_token_id: *channel_token_id,
+        security_header: token_id.clone(),
         sequence_header: sequence.clone(),
         request: service.clone(),
         mac: mac.clone()
@@ -490,9 +490,9 @@ pub fn fn_decrypted_body(
 
 pub fn fn_get_channel_token(
     open_response: &DecryptedBody
-) -> Result<u32, FnError> {
+) -> Result<SymmetricSecurityHeader, FnError> {
     if let ServiceMessage::OpenSecureChannelResponse(response) = &open_response.request {
-        Ok(response.security_token.token_id)
+        Ok(SymmetricSecurityHeader {token_id: response.security_token.token_id})
     } else {
         Err(FnError::Unknown("Cannot get channel token id".to_string()))
     }
@@ -541,12 +541,12 @@ pub fn fn_mac_header (
 
 pub fn fn_data_to_mac(
     chunk_header: &MessageChunkHeader,
-    channel_token_id: &u32,
+    security_header: &SymmetricSecurityHeader,
     request: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
     let mut buffer= Vec::<u8>::new();
     CodecP::encode(chunk_header, &mut buffer);
-    CodecP::encode(channel_token_id, &mut buffer);
+    CodecP::encode(security_header, &mut buffer);
     buffer.extend_from_slice(request);
     Ok(buffer)
 }

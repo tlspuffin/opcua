@@ -3,7 +3,7 @@ use crate::core::comms::tcp_types::{
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
     HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE,
     CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
-use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader};
+use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader, SymmetricSecurityHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     AcknowledgeMessage, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, UAString};
@@ -397,7 +397,7 @@ impl CodecP for DecryptedBody {
 #[derive(Debug, Clone, Extractable)]
 #[extractable(OpcuaProtocolTypes)]
 pub struct MessageBody {
-    pub channel_token_id: u32,
+    pub security_header: SymmetricSecurityHeader,
     pub sequence_header: SequenceHeader,
     pub request: ServiceMessage,
     pub mac: Vec<u8>
@@ -406,7 +406,7 @@ pub struct MessageBody {
 impl Default for MessageBody {
     fn default() -> MessageBody {
         MessageBody{
-            channel_token_id: 0,
+            security_header: SymmetricSecurityHeader {token_id: 0},
             sequence_header: SequenceHeader {
                 sequence_number: 0,
                 request_id: 0
@@ -419,18 +419,14 @@ impl Default for MessageBody {
 
 impl CodecP for MessageBody {
     fn encode(&self, bytes: &mut Vec<u8>) {
-        log::warn!("Encode MessageBody, channel_token_id = {}", &self.channel_token_id);
-        // CodecP::encode(&self.channel_token_id, bytes); // /!\ This is encoded in BIG ENDIAN !!!
-        // puffin::codec::Codec::encode(&self.channel_token_id, bytes); /!\ This is encoded in BIG ENDIAN !!
-        //self.channel_token_id.encode(bytes);
-        let _ = crate::types::BinaryEncoder::encode(&self.channel_token_id, bytes);
+        CodecP::encode(&self.security_header, bytes);
         CodecP::encode(&self.sequence_header, bytes);
         CodecP::encode(&self.request, bytes);
         bytes.extend_from_slice(&self.mac);
     }
 
     fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
-        self.channel_token_id.read(rd)?;
+        self.security_header.read(rd)?;
         self.sequence_header.read(rd)?;
         self.request.read(rd)?;
         self.mac.read(rd)?;
