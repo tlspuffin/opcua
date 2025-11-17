@@ -3,7 +3,8 @@ use crate::core::comms::tcp_types::{
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
     HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE,
     CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
-use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunkType, MessageIsFinalType, SequenceHeader, SymmetricSecurityHeader};
+use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunkType, MessageIsFinalType,
+    SequenceHeader, StatusCode, SymmetricSecurityHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     AcknowledgeMessage, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, UAString};
@@ -519,9 +520,11 @@ impl MessageDeframer {
         let message_debug = format!("{:?}, {:?} bytes", message_header.message_type, message_size);
         let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
         if let Some(msg) = Codec::read(&mut rd) {
-            log::warn!("New UA TCP message received! ({})", &message_debug);
             if let Message::Error(ref error_message) = msg {
-                log::error!("UA TCP Error: {}", error_message.reason)
+                log::warn!("UA TCP {}: {:?}", message_debug,
+                    StatusCode::from_bits_retain(error_message.error).name());
+            } else {
+                log::warn!("New UA TCP message received! ({})", message_debug);
             };
             let result = {
                 if let Message::Chunk(ref head,_) = msg {
@@ -538,7 +541,7 @@ impl MessageDeframer {
             self.consume(message_size);
             return result
         } else {
-            log::warn!("Error reading an UA TCP message! ({})", &message_debug);
+            log::warn!("Error reading an UA TCP message! ({})", message_debug);
             return BufferContent::Invalid
         }
     }
