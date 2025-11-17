@@ -190,23 +190,25 @@ pub fn fn_open_header(
         } else {
             (ByteString::null(), 0)
         };
-    let (cipher_text_size, padding_size, min_footer_size) =
+    let cipher_text_size=
         if needs_asym_encryption {
             let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
             let cipher_text_bloc_size = encryption_key_size;
             let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
-            let plain_text_size = data.len() + min_footer_size;
-            let padding_size = plain_text_size % plain_text_block_size;
+            let plain_text_size = data.len() + min_footer_size + signature_size;
+            let padding_size = if (plain_text_size % plain_text_block_size) != 0
+                {plain_text_block_size - (plain_text_size % plain_text_block_size)}
+                else {0};
             let block_count = if padding_size == 0 {
                 plain_text_size / plain_text_block_size
             } else {
                 (plain_text_size / plain_text_block_size) + 1
             };
-            let cipher_text_size = (block_count * cipher_text_bloc_size) + signature_size;
-            (cipher_text_size, padding_size, min_footer_size)
+            let cipher_text_size = block_count * cipher_text_bloc_size;
+            cipher_text_size
         } else {
             let plain_text_size = data.len();
-            (plain_text_size, 0, 0)
+            plain_text_size
         };
 
     let security_header = AsymmetricSecurityHeader {
@@ -215,7 +217,7 @@ pub fn fn_open_header(
         receiver_certificate_thumbprint
     };
     let mut header = chunk_header.clone();
-    header.message_size = (header.byte_len() + security_header.byte_len() + cipher_text_size + padding_size + min_footer_size) as u32;
+    header.message_size = (header.byte_len() + security_header.byte_len() + cipher_text_size) as u32;
     Ok(header)
 }
 
@@ -229,6 +231,13 @@ pub fn fn_data_to_sign (
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
+    let signature_size: usize = {
+        if !sender_certificate.is_null_or_empty() {
+            let x509 = X509::from_der(sender_certificate.as_ref())
+               .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+            x509.public_key().unwrap().size() }
+        else { 0 }
+    };
     let (receiver_certificate_thumbprint, encryption_key_size) =
         if security_policy != SecurityPolicy::None {
             let receiver_x509 = X509::from_der(receiver_certificate.as_ref())
@@ -241,8 +250,10 @@ pub fn fn_data_to_sign (
         if needs_asym_encryption {
             let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
             let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
-            let plain_text_size = data.len() + min_footer_size;
-            let padding_size = plain_text_size % plain_text_block_size;
+            let plain_text_size = data.len() + min_footer_size + signature_size;
+            let padding_size = if (plain_text_size % plain_text_block_size) != 0
+                {plain_text_block_size - (plain_text_size % plain_text_block_size)}
+                else {0};
             (padding_size, min_footer_size)
         } else { (0, 0) };
     // collect data to sign in a buffer:
@@ -264,7 +275,7 @@ pub fn fn_data_to_sign (
         if min_footer_size == 2 {
             buffer.push((padding_size >> 8) as u8);
         }
-    }
+    };
     Ok(buffer)
 }
 
@@ -311,14 +322,17 @@ pub fn fn_data_to_encrypt (
             let encryption_key_size: usize = receiver_x509.public_key().unwrap().size();
             let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
             let min_footer_size: usize = if encryption_key_size > 2048 {2} else {1};
-            let plain_text_size = request.len() + min_footer_size;
-            let padding_size = plain_text_size % plain_text_block_size;
+            let plain_text_size = request.len() + min_footer_size + signature.len();
+            let padding_size = if (plain_text_size % plain_text_block_size) != 0
+                {plain_text_block_size - (plain_text_size % plain_text_block_size)}
+                else {0};
             (padding_size, min_footer_size)
         } else { (0, 0) };
 
     let mut buffer= Vec::<u8>::new();
+    buffer.extend_from_slice(&request);
+
     if needs_asym_encryption {
-        buffer.extend_from_slice(&request);
         // Add padding in the Message Footer:
         let padding_byte= (padding_size & 0xff) as u8;
         for _ in 0..padding_size+1 {
@@ -327,9 +341,7 @@ pub fn fn_data_to_encrypt (
         if min_footer_size == 2 {
             buffer.push((padding_size >> 8) as u8);
         }
-    } else {
-        buffer.extend_from_slice(&request);
-    }
+    };
     buffer.extend_from_slice(&signature);
     Ok(buffer)
 }
@@ -355,12 +367,7 @@ pub fn fn_asym_encrypt (
             let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
             let cipher_text_bloc_size = encryption_key_size;
             let plain_text_size = data.len();
-            let padding_size = plain_text_size % plain_text_block_size;
-            let block_count = if padding_size == 0 {
-                plain_text_size / plain_text_block_size
-            } else {
-                (plain_text_size / plain_text_block_size) + 1
-            };
+            let block_count = plain_text_size / plain_text_block_size;
             block_count * cipher_text_bloc_size
         };
         // collect encrypted data in a buffer, starting with the security header in plain text

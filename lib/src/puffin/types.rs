@@ -116,8 +116,8 @@ impl std::fmt::Display for OpcuaProtocolTypes {
 }
 
 // For Basic Types:
-atom_extract_knowledge!(OpcuaProtocolTypes, bool);
-dummy_extract_knowledge!(OpcuaProtocolTypes, u8);
+dummy_extract_knowledge!(OpcuaProtocolTypes, bool);
+atom_extract_knowledge!(OpcuaProtocolTypes, u8);
 atom_extract_knowledge!(OpcuaProtocolTypes, u16);
 atom_extract_knowledge!(OpcuaProtocolTypes, u32);
 //atom_extract_knowledge!(OpcuaProtocolTypes, f64);
