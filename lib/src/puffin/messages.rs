@@ -520,6 +520,9 @@ impl MessageDeframer {
         let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
         if let Some(msg) = Codec::read(&mut rd) {
             log::warn!("New UA TCP message received! ({})", &message_debug);
+            if let Message::Error(ref error_message) = msg {
+                log::error!("UA TCP Error: {}", error_message.reason)
+            };
             let result = {
                 if let Message::Chunk(ref head,_) = msg {
                     if head.is_final == MessageIsFinalType::Intermediate {

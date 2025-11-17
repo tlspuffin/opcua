@@ -534,7 +534,7 @@ pub fn fn_client_mac_key(
     Ok(client_keys.0)
 }
 
-pub fn fn_mac_header (
+pub fn fn_msg_header (
     cipher_suite: &CipherSuite,
     message_header: &MessageChunkHeader,
     request: &Vec<u8>
