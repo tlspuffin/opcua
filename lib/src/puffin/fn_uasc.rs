@@ -357,6 +357,9 @@ pub fn fn_asym_encrypt (
     let security_policy = cipher_suite.security_policy();
     let needs_asym_encryption = cipher_suite.needs_asym_encryption();
     let mut buffer= Vec::<u8>::new();
+    if data.len() == 0 {
+        return Err(FnError::Crypto("No data to encrypt".to_string()))
+    };
 
     if needs_asym_encryption {
         let receiver_x509 = X509::from_der(receiver_certificate.as_ref())
@@ -367,7 +370,12 @@ pub fn fn_asym_encrypt (
             let plain_text_block_size = calculate_plain_text_block_size(security_policy, encryption_key_size)?;
             let cipher_text_bloc_size = encryption_key_size;
             let plain_text_size = data.len();
-            let block_count = plain_text_size / plain_text_block_size;
+            let block_count =
+                if (plain_text_size % plain_text_block_size) == 0 {
+                    plain_text_size / plain_text_block_size
+                } else {
+                    plain_text_size / plain_text_block_size + 1
+                };
             block_count * cipher_text_bloc_size
         };
         // collect encrypted data in a buffer, starting with the security header in plain text
