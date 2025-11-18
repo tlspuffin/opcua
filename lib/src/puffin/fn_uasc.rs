@@ -11,12 +11,12 @@ use crate::prelude::{AsymmetricSecurityHeader, MessageChunkHeader, SequenceHeade
 use crate::puffin::messages::{ChunkType, DecryptedBody, EncryptedBody, Message, MessageBody, ServiceMessage};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
-use crate::types::{ByteString, DiagnosticBits, ExtensionObject, MessageSecurityMode,
-    NodeId, RequestHeader, SecurityTokenRequestType, UAString, UtcTime};
+use crate::types::{ByteString, ChannelSecurityToken, DateTime, DiagnosticBits, DiagnosticInfo, ExtensionObject,
+    MessageSecurityMode, NodeId, OpenSecureChannelResponse, RequestHeader, ResponseHeader, SecurityTokenRequestType,
+    StatusCode, UAString, UtcTime};
 use crate::types::service_types::{CloseSecureChannelRequest, OpenSecureChannelRequest};
 
 use extractable_macro::Extractable;
-
 
 pub fn fn_header (
     message_type: &ChunkType,
@@ -122,7 +122,7 @@ pub fn fn_sequence_header(
     })
 }
 
-pub fn fn_request(
+pub fn fn_service(
     sequence: &SequenceHeader,
     request: &ServiceMessage
  ) -> Result<Vec<u8>, FnError> {
@@ -606,6 +606,20 @@ pub fn fn_request_header (
         additional_header: ExtensionObject::default()
     })
 }
+pub fn fn_response_header (
+    request_id: &u32,
+) -> Result<ResponseHeader, FnError> {
+    Ok(ResponseHeader{
+        timestamp: UtcTime::default(), // UtcTime::now(),
+        request_handle: *request_id,
+        additional_header: ExtensionObject::default(),
+        service_result: StatusCode::Good,
+        service_diagnostics: DiagnosticInfo::default(),
+        string_table: Some(vec![UAString::null()]),
+    })
+}
+
+const TYPICAL_CHANNEL_TOKEN_LIFETIME: u32 = 300000;
 
 pub fn fn_client_open (
     request_header: &RequestHeader,
@@ -619,9 +633,29 @@ pub fn fn_client_open (
         request_type: *kind,
         security_mode: *security_mode,
         client_nonce: client_nonce.clone(),
-        requested_lifetime: 300000,
+        requested_lifetime: TYPICAL_CHANNEL_TOKEN_LIFETIME,
     };
     Ok(ServiceMessage::OpenSecureChannelRequest(request))
+}
+
+pub fn fn_server_open (
+    response_header: &ResponseHeader,
+    channel_id: &u32,
+    token_id: &u32,
+    server_nonce: &ByteString
+) -> Result<ServiceMessage, FnError> {
+    let response = OpenSecureChannelResponse {
+        response_header: response_header.clone(),
+        server_protocol_version: 0,
+        security_token: ChannelSecurityToken{
+            channel_id: *channel_id,
+            token_id: *token_id,
+            created_at: DateTime::now(),
+            revised_lifetime: TYPICAL_CHANNEL_TOKEN_LIFETIME,
+        },
+        server_nonce: server_nonce.clone(),
+    };
+    Ok(ServiceMessage::OpenSecureChannelResponse(response))
 }
 
 pub fn fn_client_close (

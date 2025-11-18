@@ -147,14 +147,15 @@ define_signature! {
 
     fn_default_size
     fn_size_8192
-    fn_bob_uri
     fn_bob_endpoint
+    fn_oscar_uri
+    fn_oscar_endpoint
 
 
     // UA SC messages:
     fn_header
     fn_sequence_header
-    fn_request
+    fn_service
     fn_body
     fn_open_header
     fn_no_bytes
@@ -174,6 +175,8 @@ define_signature! {
     fn_message
 
     fn_request_header
+    fn_response_header
     fn_client_open
+    fn_server_open
     fn_client_close
 }

@@ -58,11 +58,14 @@ pub fn fn_size_8192() -> Result<u32, FnError> {
     Ok(8192) // Part 6 § 7.1.2.3 Table 66: Buffer size shall be at least 8192 bytes.
 }
 
-pub fn fn_bob_uri() -> Result<Vec<u8>, FnError> {
-    Ok("opc.tcp://127.0.0.1:4840".as_bytes().to_vec())
-}
 pub fn fn_bob_endpoint() -> Result<Vec<u8>, FnError> {
     Ok("opc.tcp://localhost:4840/bob_server".as_bytes().to_vec())
+}
+pub fn fn_oscar_uri() -> Result<Vec<u8>, FnError> {
+    Ok("opc.tcp://127.0.0.1:4840".as_bytes().to_vec())
+}
+pub fn fn_oscar_endpoint() -> Result<Vec<u8>, FnError> {
+    Ok("opc.tcp://localhost:4840/OpcuaPuffinServerOscar".as_bytes().to_vec())
 }
 
 /// Various constants:
