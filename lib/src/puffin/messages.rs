@@ -7,7 +7,7 @@ use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunk
     SequenceHeader, StatusCode, SymmetricSecurityHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    AcknowledgeMessage, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, UAString};
+    AcknowledgeMessage, ApplicationDescription, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, CreateSessionRequest, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, UAString};
 
 use extractable_macro::Extractable;
 use puffin::codec::{Codec, CodecP, Reader};
@@ -266,6 +266,8 @@ pub enum ServiceMessage {
     OpenSecureChannelResponse(OpenSecureChannelResponse),
     CloseSecureChannelRequest(CloseSecureChannelRequest),
     CloseSecureChannelResponse(CloseSecureChannelResponse),
+    CreateSessionRequest(CreateSessionRequest),
+    //CreateSessionResponse(CreateSessionResponse)
 }
 
 impl Codec for ServiceMessage {
@@ -299,6 +301,13 @@ impl Codec for ServiceMessage {
                 };
                 CodecP::encode(&id, bytes);
                 r.encode(bytes)},
+            ServiceMessage::CreateSessionRequest(ref r) => {
+                    let id = NodeId {
+                        namespace: 0,
+                        identifier: Identifier::from(ObjectId::CreateSessionRequest_Encoding_DefaultBinary as u32)
+                    };
+                    CodecP::encode(&id, bytes);
+                    r.encode(bytes)},
             ServiceMessage::None => ()
         }
     }
@@ -347,6 +356,22 @@ impl Codec for ServiceMessage {
                             };
                             if let Ok(()) = CodecP::read(&mut close_response, rd) {
                                 return Some(ServiceMessage::CloseSecureChannelResponse(close_response))
+                            }
+                        }
+                        ObjectId::CreateSessionRequest_Encoding_DefaultBinary => {
+                            let mut create_request = CreateSessionRequest {
+                                request_header: RequestHeader::default(),
+                                client_description: ApplicationDescription::default(),
+                                server_uri: UAString::null(),
+                                endpoint_url: UAString::null(),
+                                session_name: UAString::null(),
+                                client_nonce: ByteString::null(),
+                                client_certificate: ByteString::null(),
+                                requested_session_timeout: 0.0,
+                                max_response_message_size: 0,
+                            };
+                            if let Ok(()) = CodecP::read(&mut create_request, rd) {
+                                return Some(ServiceMessage::CreateSessionRequest(create_request))
                             }
                         }
                         _ => return Some(ServiceMessage::None),

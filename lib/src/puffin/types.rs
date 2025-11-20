@@ -120,4 +120,4 @@ dummy_extract_knowledge!(OpcuaProtocolTypes, bool);
 atom_extract_knowledge!(OpcuaProtocolTypes, u8);
 atom_extract_knowledge!(OpcuaProtocolTypes, u16);
 atom_extract_knowledge!(OpcuaProtocolTypes, u32);
-//atom_extract_knowledge!(OpcuaProtocolTypes, f64);
+atom_extract_knowledge!(OpcuaProtocolTypes, f64);

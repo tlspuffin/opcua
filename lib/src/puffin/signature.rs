@@ -17,6 +17,9 @@ pub mod fn_impl {
 
     pub mod fn_uasc;
     pub use fn_uasc::*;
+
+    pub mod fn_services;
+    pub use fn_services::*;
 }
 
 
@@ -24,13 +27,13 @@ pub mod fn_impl {
 
 /// Reverse Hello
 pub fn fn_server_hello (
-    server_uri:  &Vec<u8>,
-    endpoint_url: &Vec<u8>,
+    server_uri:  &UAString,
+    endpoint_url: &UAString,
 ) -> Result<Message, FnError> {
     let mut msg = ReverseHelloMessage {
         message_header: MessageHeader::new(MessageType::Reverse),
-        server_uri: UAString::from(String::from_utf8_lossy(server_uri).as_ref()),
-        endpoint_url: UAString::from(String::from_utf8_lossy(&endpoint_url).as_ref())
+        server_uri: server_uri.clone(),
+        endpoint_url: endpoint_url.clone()
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(Message::Reverse(msg))
@@ -38,7 +41,7 @@ pub fn fn_server_hello (
 
 /// Hello
 pub fn fn_client_hello (
-    endpoint_url: &Vec<u8>,
+    endpoint_url: &UAString,
     send_buffer_size: &u32,
     receive_buffer_size: &u32
 ) -> Result<Message, FnError> {
@@ -49,7 +52,7 @@ pub fn fn_client_hello (
         receive_buffer_size: *receive_buffer_size,
         max_message_size: 0,  // 0: Client has no limit
         max_chunk_count: 0,   // 0: Client has no limit
-        endpoint_url: UAString::from(String::from_utf8_lossy(endpoint_url).as_ref())
+        endpoint_url: endpoint_url.clone()
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(Message::Hello(msg))
@@ -75,12 +78,12 @@ pub fn fn_acknowledge (
 /// Error
 pub fn fn_error (
     error_code: &u32,
-    reason: &String
+    reason: &UAString
 ) -> Result<Message, FnError> {
     let mut msg = ErrorMessage {
         message_header: MessageHeader::new(MessageType::Error),
         error: *error_code,
-        reason: UAString::from(reason),
+        reason: reason.clone(),
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(Message::Error(msg))
@@ -138,6 +141,7 @@ define_signature! {
     fn_no_nonce
     fn_channel_nonce_1
     fn_channel_nonce_2
+    fn_session_nonce_1
 
     // UA TCP messages:
     fn_server_hello
@@ -158,6 +162,7 @@ define_signature! {
     fn_service
     fn_body
     fn_open_header
+    fn_open_request_header
     fn_no_bytes
     fn_data_to_sign
     fn_data_to_encrypt
@@ -179,4 +184,7 @@ define_signature! {
     fn_client_open
     fn_server_open
     fn_client_close
+
+    //services
+    fn_create_request
 }

@@ -124,14 +124,14 @@ try:
         "-subj", "/C=FR/L=Here/O=Inria/CN=Opcua" + Agent + "@localhost",
         "-out", "localhost.crt"
     ], check=True)
-    
+
     subprocess.run([
         "openssl", "x509",
         "-in", "localhost.crt",
         "-outform", "der",
         "-out", f"{certificatename}_cert.der"
     ], check=True)
-    
+
     subprocess.run([
         "openssl", "rsa",
         "-inform", "PEM",
@@ -139,7 +139,7 @@ try:
         "-outform", "DER",
         "-out", f"{certificatename}_key.der"
     ], check=True)
-    
+
 except subprocess.CalledProcessError as e:
     sys.exit(f'ERROR: OpenSSL command failed: {e}')
 

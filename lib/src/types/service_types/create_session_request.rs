@@ -14,7 +14,8 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct CreateSessionRequest {
     pub request_header: RequestHeader,
     pub client_description: ApplicationDescription,
@@ -87,3 +88,4 @@ impl BinaryEncoder<CreateSessionRequest> for CreateSessionRequest {
         })
     }
 }
+crate::impl_codec_p!(CreateSessionRequest);

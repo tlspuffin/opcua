@@ -9,6 +9,7 @@ use std::{
     io::{Read, Write},
 };
 
+use puffin::codec::{Codec, Reader, VecCodecWoSize};
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use extractable_macro::Extractable;
 
@@ -148,7 +149,18 @@ impl BinaryEncoder<UAString> for UAString {
     }
 }
 
-crate::impl_codec_p!(UAString);
+impl Codec for UAString {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        if let Some(s) = &self.value {
+            <String as Codec>::encode(s, bytes)
+        }
+    }
+
+    fn read(r: &mut Reader) -> Option<Self> {
+        <String as Codec>::read(r).map(|s| UAString { value: Some(s) })
+    }
+}
+impl VecCodecWoSize for UAString {}
 
 impl From<UAString> for String {
     fn from(value: UAString) -> Self {

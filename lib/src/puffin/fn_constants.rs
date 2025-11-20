@@ -8,7 +8,7 @@ use crate::puffin::static_certs::{
     ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
     MALLORY_PRIVATE_KEY, MALLORY_CERTIFICATE, OSCAR_PRIVATE_KEY, OSCAR_CERTIFICATE};
 use crate::puffin::messages::MAX_WIRE_SIZE;
-use crate::types::{ByteString, Identifier, MessageSecurityMode, NodeId, SecurityTokenRequestType};
+use crate::types::{ByteString, Identifier, MessageSecurityMode, NodeId, SecurityTokenRequestType, UAString};
 
 pub fn fn_true() -> Result<bool, FnError> {
     Ok(true)
@@ -58,14 +58,14 @@ pub fn fn_size_8192() -> Result<u32, FnError> {
     Ok(8192) // Part 6 § 7.1.2.3 Table 66: Buffer size shall be at least 8192 bytes.
 }
 
-pub fn fn_bob_endpoint() -> Result<Vec<u8>, FnError> {
-    Ok("opc.tcp://localhost:4840/bob_server".as_bytes().to_vec())
+pub fn fn_bob_endpoint() -> Result<UAString, FnError> {
+    Ok(UAString::from("opc.tcp://localhost:4840/bob_server"))
 }
-pub fn fn_oscar_uri() -> Result<Vec<u8>, FnError> {
-    Ok("opc.tcp://127.0.0.1:4840".as_bytes().to_vec())
+pub fn fn_oscar_uri() -> Result<UAString, FnError> {
+    Ok(UAString::from("opc.tcp://127.0.0.1:4840"))
 }
-pub fn fn_oscar_endpoint() -> Result<Vec<u8>, FnError> {
-    Ok("opc.tcp://localhost:4840/OpcuaPuffinServerOscar".as_bytes().to_vec())
+pub fn fn_oscar_endpoint() -> Result<UAString, FnError> {
+    Ok(UAString::from("opc.tcp://localhost:4840/OpcuaPuffinServerOscar"))
 }
 
 /// Various constants:
@@ -173,6 +173,13 @@ pub fn fn_channel_nonce_2() -> Result<ByteString, FnError> {
         10, 250, 197, 126, 173, 140, 236, 226,
         172, 79, 112, 133, 181, 253, 123, 7,
         106, 246, 206, 113, 129, 158, 26, 10])})
+}
+pub fn fn_session_nonce_1() -> Result<ByteString, FnError> {
+    Ok(ByteString{value: Some(vec![
+        131, 96, 12, 13, 188, 118, 177, 20,
+        172, 8, 201, 194, 228, 150, 70, 61,
+        118, 220, 37, 153, 61, 85, 163, 69,
+        221, 252, 209, 206, 208, 30, 244, 139])})
 }
 pub fn fn_no_nonce() -> Result<ByteString, FnError> {
     Ok(ByteString::null())

@@ -11,6 +11,9 @@ use crate::types::{encoding::*, status_codes::StatusCode};
 use bitflags;
 use std::io::{Read, Write};
 
+use extractable_macro::Extractable;
+use crate::puffin::types::OpcuaProtocolTypes;
+
 /// The possible encodings for a NodeId value.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum NodeIdType {
@@ -820,7 +823,8 @@ impl BinaryEncoder<StructureType> for StructureType {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub enum ApplicationType {
     Server = 0,
     Client = 1,
@@ -851,9 +855,7 @@ impl BinaryEncoder<ApplicationType> for ApplicationType {
         }
     }
 }
-
-use extractable_macro::Extractable;
-use crate::puffin::types::OpcuaProtocolTypes;
+crate::impl_codec_p!(ApplicationType);
 
 #[derive(Debug, Copy, Clone, PartialEq, Extractable)]
 #[extractable(OpcuaProtocolTypes)]
@@ -887,7 +889,6 @@ impl BinaryEncoder<MessageSecurityMode> for MessageSecurityMode {
         }
     }
 }
-
 crate::impl_codec_p!(MessageSecurityMode);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -950,7 +951,6 @@ impl BinaryEncoder<SecurityTokenRequestType> for SecurityTokenRequestType {
         }
     }
 }
-
 crate::impl_codec_p!(SecurityTokenRequestType);
 
 #[derive(Debug, Copy, Clone, PartialEq)]
