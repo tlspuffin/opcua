@@ -7,7 +7,7 @@ use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunk
     SequenceHeader, StatusCode, SymmetricSecurityHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    AcknowledgeMessage, ApplicationDescription, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, CreateSessionRequest, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, UAString};
+    AcknowledgeMessage, ApplicationDescription, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, CreateSessionRequest, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, ServiceFault, UAString};
 
 use extractable_macro::Extractable;
 use puffin::codec::{Codec, CodecP, Reader};
@@ -267,6 +267,7 @@ pub enum ServiceMessage {
     CloseSecureChannelRequest(CloseSecureChannelRequest),
     CloseSecureChannelResponse(CloseSecureChannelResponse),
     CreateSessionRequest(CreateSessionRequest),
+    ServiceFault(ServiceFault),
     //CreateSessionResponse(CreateSessionResponse)
 }
 
@@ -308,6 +309,7 @@ impl Codec for ServiceMessage {
                     };
                     CodecP::encode(&id, bytes);
                     r.encode(bytes)},
+            ServiceMessage::ServiceFault(ref _r) => (),
             ServiceMessage::None => ()
         }
     }
@@ -372,6 +374,15 @@ impl Codec for ServiceMessage {
                             };
                             if let Ok(()) = CodecP::read(&mut create_request, rd) {
                                 return Some(ServiceMessage::CreateSessionRequest(create_request))
+                            }
+                        }
+                        ObjectId::ServiceFault_Encoding_DefaultBinary => {
+                            let mut service_fault = ServiceFault {
+                                response_header: ResponseHeader::null()
+                            };
+                            if let Ok(()) = CodecP::read(&mut service_fault, rd) {
+                                log::error!("Service Fault: {:?}", service_fault.response_header.service_result);
+                                return Some(ServiceMessage::ServiceFault(service_fault))
                             }
                         }
                         _ => return Some(ServiceMessage::None),
@@ -511,7 +522,6 @@ impl MessageDeframer {
             match self.try_deframe_one() {
                 BufferContent::Invalid => {
                     self.used = 0;  // TODO: try to resynchronize.
-                    log::error!("Invalid UA TCP message!");
                     break;
                 }
                 BufferContent::Valid => continue,
@@ -546,7 +556,7 @@ impl MessageDeframer {
         let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
         if let Some(msg) = Codec::read(&mut rd) {
             if let Message::Error(ref error_message) = msg {
-                log::warn!("UA TCP {}: {:?}", message_debug,
+                log::error!("UA TCP {}: {:?}", message_debug,
                     StatusCode::from_bits_retain(error_message.error).name());
             } else {
                 log::warn!("New UA TCP message received! ({})", message_debug);
@@ -566,7 +576,7 @@ impl MessageDeframer {
             self.consume(message_size);
             return result
         } else {
-            log::warn!("Error reading an UA TCP message! ({})", message_debug);
+            log::error!("Invalid UA TCP message! ({})", message_debug);
             return BufferContent::Invalid
         }
     }

@@ -536,7 +536,7 @@ pub fn fn_client_mac_key(
     if (client_nonce.as_ref().len() != nonce_length) || (server_nonce.as_ref().len() != nonce_length) {
         return Err(FnError::Crypto("Cannot compute symmetric keys: nonce size is incorrect".to_string()))
     }
-    // cf. SecureChannel: Our end's set of keys: Symmetric Signing Key, Decrypt Key, IV
+    // cf. SecureChannel: Our end's set of keys: Symmetric Signing Key, Decrypt [Encrypt!] Key, IV
     let client_keys = security_policy.make_secure_channel_keys(
         server_nonce.as_ref(), client_nonce.as_ref());
     Ok(client_keys.0)
