@@ -600,13 +600,13 @@ pub fn fn_message (
     Ok(Message::Chunk (header.clone(), body.clone()))
 }
 
-pub fn fn_open_request_header (
+pub fn fn_request_header (
     sa_token: &NodeId,
     request_id: &u32,
 ) -> Result<RequestHeader, FnError> {
     Ok(RequestHeader{
         authentication_token: sa_token.clone(),
-        timestamp: UtcTime::default(), // UtcTime::now(),
+        timestamp: UtcTime::default(),
         request_handle: *request_id,
         return_diagnostics: DiagnosticBits::empty(),
         audit_entry_id: UAString::null(),

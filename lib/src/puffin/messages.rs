@@ -381,7 +381,7 @@ impl Codec for ServiceMessage {
                                 response_header: ResponseHeader::null()
                             };
                             if let Ok(()) = CodecP::read(&mut service_fault, rd) {
-                                log::error!("Service Fault: {:?}", service_fault.response_header.service_result);
+                                log::error!("Service Fault: {}", service_fault.response_header.service_result);
                                 return Some(ServiceMessage::ServiceFault(service_fault))
                             }
                         }

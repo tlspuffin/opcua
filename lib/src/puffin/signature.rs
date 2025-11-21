@@ -162,7 +162,6 @@ define_signature! {
     fn_service
     fn_body
     fn_open_header
-    fn_open_request_header
     fn_no_bytes
     fn_data_to_sign
     fn_data_to_encrypt

@@ -3,21 +3,6 @@ use puffin::algebra::error::FnError;
 use crate::puffin::messages::ServiceMessage;
 use crate::types::{ApplicationDescription, ApplicationType, ByteString, CreateSessionRequest, DiagnosticBits, ExtensionObject, LocalizedText, NodeId, RequestHeader, UAString, UtcTime};
 
-pub fn fn_request_header (
-    sa_token: &NodeId,
-    request_id: &u32,
-) -> Result<RequestHeader, FnError> {
-    Ok(RequestHeader{
-        authentication_token: sa_token.clone(),
-        timestamp: UtcTime::now(),
-        request_handle: *request_id,
-        return_diagnostics: DiagnosticBits::empty(),
-        audit_entry_id: UAString::null(),
-        timeout_hint: 0, // No timeout
-        additional_header: ExtensionObject::default()
-    })
-}
-
 pub fn fn_create_request (
     request_header: &RequestHeader,
     endpoint_url: &UAString,
