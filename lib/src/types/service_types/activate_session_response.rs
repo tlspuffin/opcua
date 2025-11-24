@@ -14,11 +14,14 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct ActivateSessionResponse {
     pub response_header: ResponseHeader,
     pub server_nonce: ByteString,
+    #[extractable_ignore]
     pub results: Option<Vec<StatusCode>>,
+    #[extractable_ignore]
     pub diagnostic_infos: Option<Vec<DiagnosticInfo>>,
 }
 
@@ -62,3 +65,4 @@ impl BinaryEncoder<ActivateSessionResponse> for ActivateSessionResponse {
         })
     }
 }
+crate::impl_codec_p!(ActivateSessionResponse);

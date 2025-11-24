@@ -891,7 +891,8 @@ impl BinaryEncoder<MessageSecurityMode> for MessageSecurityMode {
 }
 crate::impl_codec_p!(MessageSecurityMode);
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub enum UserTokenType {
     Anonymous = 0,
     UserName = 1,
@@ -922,6 +923,7 @@ impl BinaryEncoder<UserTokenType> for UserTokenType {
         }
     }
 }
+crate::impl_codec_p!(UserTokenType);
 
 #[derive(Debug, Copy, Clone, PartialEq, Extractable)]
 #[extractable(OpcuaProtocolTypes)]

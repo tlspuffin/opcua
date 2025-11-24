@@ -14,7 +14,8 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct EndpointDescription {
     pub endpoint_url: UAString,
     pub server: ApplicationDescription,
@@ -83,3 +84,5 @@ impl BinaryEncoder<EndpointDescription> for EndpointDescription {
         })
     }
 }
+crate::impl_codec!(EndpointDescription);
+impl puffin::codec::VecCodecWoSize for EndpointDescription {}

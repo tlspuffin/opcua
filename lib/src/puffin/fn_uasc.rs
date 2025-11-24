@@ -48,7 +48,7 @@ pub enum CipherSuite {
 }
 
 impl CipherSuite {
-    fn security_policy(self) -> SecurityPolicy {
+    pub fn security_policy(self) -> SecurityPolicy {
         match self {
             CipherSuite::None => SecurityPolicy::None,
             CipherSuite::Aes128Sha256RsaOaep => SecurityPolicy::Aes128Sha256RsaOaep,
@@ -606,7 +606,7 @@ pub fn fn_request_header (
 ) -> Result<RequestHeader, FnError> {
     Ok(RequestHeader{
         authentication_token: sa_token.clone(),
-        timestamp: UtcTime::default(),
+        timestamp: UtcTime::from((2025, 11, 24, 9, 28, 05)),
         request_handle: *request_id,
         return_diagnostics: DiagnosticBits::empty(),
         audit_entry_id: UAString::null(),

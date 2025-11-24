@@ -32,3 +32,20 @@ macro_rules! impl_codec_p {
         })*
     };
 }
+
+#[macro_export]
+macro_rules! impl_codec {
+    ($($t:ty),*) => {
+        $(impl puffin::codec::Codec for $t {
+        fn encode(&self, bytes: &mut Vec<u8>){
+            let _ = BinaryEncoder::encode(self, bytes);
+        }
+        fn read(r: &mut puffin::codec::Reader) -> Option<Self> {
+            match <$t as BinaryEncoder<$t>>::decode(r, &DecodingOptions::default()) {
+                Ok(o) => Some(o),
+                Err(_) => None
+            }
+        }
+        })*
+    };
+}

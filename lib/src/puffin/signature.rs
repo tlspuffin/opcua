@@ -186,4 +186,9 @@ define_signature! {
 
     //services
     fn_create_request
+    fn_activate_request
+    fn_signature_data
+    fn_anonymous
+    fn_user_pwd
+    fn_user_cert
 }

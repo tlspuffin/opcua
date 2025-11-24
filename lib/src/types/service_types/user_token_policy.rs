@@ -13,7 +13,8 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct UserTokenPolicy {
     pub policy_id: UAString,
     pub token_type: UserTokenType,
@@ -66,3 +67,5 @@ impl BinaryEncoder<UserTokenPolicy> for UserTokenPolicy {
         })
     }
 }
+crate::impl_codec!(UserTokenPolicy);
+impl puffin::codec::VecCodecWoSize for UserTokenPolicy {}

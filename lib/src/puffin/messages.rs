@@ -7,7 +7,7 @@ use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunk
     SequenceHeader, StatusCode, SymmetricSecurityHeader};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    AcknowledgeMessage, ApplicationDescription, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, CreateSessionRequest, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, ServiceFault, UAString};
+    AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, ApplicationDescription, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, ExtensionObject, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, ServiceFault, SignatureData, UAString};
 
 use extractable_macro::Extractable;
 use puffin::codec::{Codec, CodecP, Reader};
@@ -267,8 +267,10 @@ pub enum ServiceMessage {
     CloseSecureChannelRequest(CloseSecureChannelRequest),
     CloseSecureChannelResponse(CloseSecureChannelResponse),
     CreateSessionRequest(CreateSessionRequest),
+    CreateSessionResponse(CreateSessionResponse),
+    ActivateSessionRequest(ActivateSessionRequest),
+    ActivateSessionResponse(ActivateSessionResponse),
     ServiceFault(ServiceFault),
-    //CreateSessionResponse(CreateSessionResponse)
 }
 
 impl Codec for ServiceMessage {
@@ -303,13 +305,40 @@ impl Codec for ServiceMessage {
                 CodecP::encode(&id, bytes);
                 r.encode(bytes)},
             ServiceMessage::CreateSessionRequest(ref r) => {
+                let id = NodeId {
+                    namespace: 0,
+                    identifier: Identifier::from(ObjectId::CreateSessionRequest_Encoding_DefaultBinary as u32)
+                };
+                CodecP::encode(&id, bytes);
+                r.encode(bytes)},
+            ServiceMessage::CreateSessionResponse(ref r) => {
                     let id = NodeId {
                         namespace: 0,
-                        identifier: Identifier::from(ObjectId::CreateSessionRequest_Encoding_DefaultBinary as u32)
+                        identifier: Identifier::from(ObjectId::CreateSessionResponse_Encoding_DefaultBinary as u32)
                     };
                     CodecP::encode(&id, bytes);
                     r.encode(bytes)},
-            ServiceMessage::ServiceFault(ref _r) => (),
+            ServiceMessage::ActivateSessionRequest(ref r) => {
+                let id = NodeId {
+                    namespace: 0,
+                    identifier: Identifier::from(ObjectId::ActivateSessionRequest_Encoding_DefaultBinary as u32)
+                };
+                CodecP::encode(&id, bytes);
+                r.encode(bytes)},
+            ServiceMessage::ActivateSessionResponse(ref r) => {
+                let id = NodeId {
+                    namespace: 0,
+                    identifier: Identifier::from(ObjectId::ActivateSessionResponse_Encoding_DefaultBinary as u32)
+                };
+                CodecP::encode(&id, bytes);
+                r.encode(bytes)},
+            ServiceMessage::ServiceFault(ref r) => {
+                let id = NodeId {
+                    namespace: 0,
+                    identifier: Identifier::from(ObjectId::ServiceFault_Encoding_DefaultBinary as u32)
+                };
+                CodecP::encode(&id, bytes);
+                r.encode(bytes)},
             ServiceMessage::None => ()
         }
     }
@@ -374,6 +403,19 @@ impl Codec for ServiceMessage {
                             };
                             if let Ok(()) = CodecP::read(&mut create_request, rd) {
                                 return Some(ServiceMessage::CreateSessionRequest(create_request))
+                            }
+                        }
+                        ObjectId::ActivateSessionRequest_Encoding_DefaultBinary => {
+                            let mut activate_request = ActivateSessionRequest {
+                                request_header: RequestHeader::default(),
+                                client_signature: SignatureData::null(),
+                                client_software_certificates: None,
+                                locale_ids: None,
+                                user_identity_token: ExtensionObject::null(),
+                                user_token_signature: SignatureData::null()
+                            };
+                            if let Ok(()) = CodecP::read(&mut activate_request, rd) {
+                                return Some(ServiceMessage::ActivateSessionRequest(activate_request))
                             }
                         }
                         ObjectId::ServiceFault_Encoding_DefaultBinary => {
