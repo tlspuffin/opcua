@@ -188,3 +188,10 @@ pub fn fn_no_nonce() -> Result<ByteString, FnError> {
 pub fn fn_no_bytes() -> Result<Vec<u8>, FnError> {
     Ok(vec![])
 }
+
+pub fn fn_username() -> Result<UAString, FnError> {
+    Ok(UAString::from("peter"))
+}
+pub fn fn_password() -> Result<UAString, FnError> {
+    Ok(UAString::from("peter123"))
+}

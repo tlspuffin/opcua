@@ -101,6 +101,7 @@ pub fn fn_anonymous(
 }
 
 pub fn fn_user_pwd(
+    policy_id: &UAString,
     cipher_suite: &CipherSuite,
     user_name: &UAString,
     password: &UAString,
@@ -138,10 +139,10 @@ pub fn fn_user_pwd(
         }
     };
     let identity_token = UserNameIdentityToken {
-        policy_id: UAString::from(security_policy.to_uri()),
+        policy_id: policy_id.clone(),
         user_name: user_name.clone(),
-        encryption_algorithm,
         password: encrypted_password,
+        encryption_algorithm,
     };
     let identity_token = ExtensionObject::from_encodable(
         ObjectId::UserNameIdentityToken_Encoding_DefaultBinary,
@@ -151,13 +152,11 @@ pub fn fn_user_pwd(
 }
 
 pub fn fn_user_cert(
-    cipher_suite: &CipherSuite,
+    policy_id: &UAString,
     user_cert: &ByteString,
 ) -> Result<ExtensionObject, FnError> {
-    let security_policy: SecurityPolicy = cipher_suite.security_policy();
-    // Create identity token
     let identity_token = X509IdentityToken {
-        policy_id: UAString::from(security_policy.to_uri()),
+        policy_id: policy_id.clone(),
         certificate_data: user_cert.clone(),
     };
     let identity_token = ExtensionObject::from_encodable(
