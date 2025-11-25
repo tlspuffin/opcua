@@ -405,6 +405,23 @@ impl Codec for ServiceMessage {
                                 return Some(ServiceMessage::CreateSessionRequest(create_request))
                             }
                         }
+                        ObjectId::CreateSessionResponse_Encoding_DefaultBinary => {
+                            let mut create_response = CreateSessionResponse {
+                                response_header: ResponseHeader::null(),
+                                session_id: NodeId::null(),
+                                authentication_token: NodeId::null(),
+                                revised_session_timeout: 0.0,
+                                server_nonce: ByteString::null(),
+                                server_certificate: ByteString::null(),
+                                server_endpoints: None,
+                                server_software_certificates: None,
+                                server_signature: SignatureData::null(),
+                                max_request_message_size: 0
+                            };
+                            if let Ok(()) = CodecP::read(&mut create_response, rd) {
+                                return Some(ServiceMessage::CreateSessionResponse(create_response))
+                            }
+                        }
                         ObjectId::ActivateSessionRequest_Encoding_DefaultBinary => {
                             let mut activate_request = ActivateSessionRequest {
                                 request_header: RequestHeader::default(),

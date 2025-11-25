@@ -87,9 +87,11 @@ pub fn fn_activate_request(
     Ok(ServiceMessage::ActivateSessionRequest(request))
 }
 
-pub fn fn_anonymous() -> Result<ExtensionObject, FnError> {
+pub fn fn_anonymous(
+    policy_id: &UAString
+) -> Result<ExtensionObject, FnError> {
     let identity_token = AnonymousIdentityToken {
-        policy_id: UAString::from("anonymous".to_string())
+        policy_id: policy_id.clone()
     };
     let identity_token = ExtensionObject::from_encodable(
         ObjectId::AnonymousIdentityToken_Encoding_DefaultBinary,
