@@ -166,6 +166,7 @@ define_signature! {
     fn_data_to_sign
     fn_data_to_encrypt
     fn_sign
+    fn_asym_header
     fn_asym_encrypt
     fn_asym_decrypt
     fn_decrypted_body
@@ -189,6 +190,7 @@ define_signature! {
     fn_activate_request
     fn_signature_data
     fn_anonymous
+    fn_legacy_user_pwd
     fn_user_pwd
     fn_username
     fn_password

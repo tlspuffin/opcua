@@ -1,6 +1,6 @@
 use puffin::algebra::error::FnError;
 
-use crate::crypto::{SecurityPolicy, X509, legacy_password_encrypt};
+use crate::crypto::{RsaPadding, SecurityPolicy, X509, legacy_password_encrypt};
 use crate::puffin::messages::ServiceMessage;
 use crate::puffin::signature::{CipherSuite};
 use crate::types::{ActivateSessionRequest, AnonymousIdentityToken, ApplicationDescription, ApplicationType, BinaryEncoder, ByteString, CreateSessionRequest, ExtensionObject, LocalizedText, ObjectId, RequestHeader, SignatureData, UAString, UserNameIdentityToken, X509IdentityToken};
@@ -100,7 +100,70 @@ pub fn fn_anonymous(
     Ok(identity_token)
 }
 
+fn rsa_password_encrypt(
+    password: &str,
+    server_nonce: &[u8],
+    server_cert: &X509,
+    padding: RsaPadding
+) -> Result<ByteString, FnError> {
+
+    // This should create the RsaEncryptedSecret structure in the ByteString
+    let buffer = Vec::<u8>::new();
+    Ok(ByteString::null())
+}
+
 pub fn fn_user_pwd(
+    policy_id: &UAString,
+    cipher_suite: &CipherSuite,
+    user_name: &UAString,
+    password: &UAString,
+    server_cert: &ByteString,
+    server_nonce: &ByteString,
+) -> Result<ExtensionObject, FnError> {
+
+    // taken from crypto/user_identity.rs: make_user_name_identity_token
+    let security_policy: SecurityPolicy = cipher_suite.security_policy();
+    let pass: &str = if password.is_empty() {
+        return Err(FnError::Crypto("No password for user name authentication".to_string()))
+    } else {
+        password.as_ref()
+    };
+    let (encrypted_password, encryption_algorithm) = match security_policy {
+        // The fuzzer can send a password in clear even if it is forgotten in mode Sign!
+        SecurityPolicy::None => (ByteString::from(pass.as_bytes()), UAString::null()),
+        security_policy => {
+            // Create a password which is encrypted using the user token policy
+            if server_cert.is_null_or_empty() {
+                (ByteString::from(pass.as_bytes()), UAString::null())
+            } else {
+                let cert = X509::from_der(server_cert.as_ref())
+                   .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
+                let encrypted_password = rsa_password_encrypt(
+                    pass,
+                    server_nonce.as_ref(),
+                    &cert,
+                    security_policy.asymmetric_encryption_padding(),
+                ).map_err ( |e| {return FnError::Crypto(format!("Error in legacy password encrypt: {:?}", e))})?;
+                let encryption_algorithm =
+                    UAString::from(security_policy.asymmetric_encryption_algorithm());
+                (encrypted_password, encryption_algorithm)
+            }
+        }
+    };
+    let identity_token = UserNameIdentityToken {
+        policy_id: policy_id.clone(),
+        user_name: user_name.clone(),
+        password: encrypted_password,
+        encryption_algorithm,
+    };
+    let identity_token = ExtensionObject::from_encodable(
+        ObjectId::UserNameIdentityToken_Encoding_DefaultBinary,
+        &identity_token,
+    );
+    Ok(identity_token)
+}
+
+pub fn fn_legacy_user_pwd(
     policy_id: &UAString,
     cipher_suite: &CipherSuite,
     user_name: &UAString,

@@ -347,9 +347,28 @@ pub fn fn_data_to_encrypt (
 }
 
 
-pub fn fn_asym_encrypt (
+pub fn fn_asym_header (
     cipher_suite: &CipherSuite,
     sender_certificate: &ByteString,
+    receiver_certificate: &ByteString,
+) -> Result<AsymmetricSecurityHeader, FnError> {
+
+    let security_policy = cipher_suite.security_policy();
+    let receiver_certificate_thumbprint =
+        match X509::from_der(receiver_certificate.as_ref()) {
+            Ok(receiver_x509) => receiver_x509.thumbprint().as_byte_string(),
+            Err(_) => ByteString::null()
+        };
+    Ok(AsymmetricSecurityHeader {
+        security_policy_uri: UAString::from(security_policy.to_uri()),
+        sender_certificate: sender_certificate.clone(),
+        receiver_certificate_thumbprint
+    })
+}
+
+pub fn fn_asym_encrypt (
+    security_header: &AsymmetricSecurityHeader,
+    cipher_suite: &CipherSuite,
     receiver_certificate: &ByteString,
     data: &Vec<u8>,
 ) -> Result<EncryptedBody, FnError> {
@@ -379,12 +398,7 @@ pub fn fn_asym_encrypt (
             block_count * cipher_text_bloc_size
         };
         // collect encrypted data in a buffer, starting with the security header in plain text
-        let security_header = AsymmetricSecurityHeader {
-            security_policy_uri: UAString::from(security_policy.to_uri()),
-            sender_certificate: sender_certificate.clone(),
-            receiver_certificate_thumbprint: receiver_x509.thumbprint().as_byte_string()
-        };
-        CodecP::encode(&security_header, &mut buffer);
+        CodecP::encode(security_header, &mut buffer);
 
         let mut cipher_text= vec![0u8; cipher_text_size];
         // Encrypt data into buffer:
@@ -401,20 +415,7 @@ pub fn fn_asym_encrypt (
         buffer.extend_from_slice(&cipher_text);
     }
     else { // No asymmetric encryption.
-        let receiver_certificate_thumbprint =
-            if security_policy != SecurityPolicy::None {
-                let receiver_x509 = X509::from_der(receiver_certificate.as_ref())
-                    .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
-                receiver_x509.thumbprint().as_byte_string()
-            } else {
-                ByteString::null()
-            };
-        let security_header = AsymmetricSecurityHeader {
-            security_policy_uri: UAString::from(security_policy.to_uri()),
-            sender_certificate: sender_certificate.clone(),
-            receiver_certificate_thumbprint
-        };
-        CodecP::encode(&security_header, &mut buffer);
+        CodecP::encode(security_header, &mut buffer);
         buffer.extend_from_slice(&data);
      };
     Ok(EncryptedBody{cipher_text: buffer})
