@@ -46,3 +46,11 @@ impl BinaryEncoder<CloseSecureChannelRequest> for CloseSecureChannelRequest {
     }
 }
 crate::impl_codec_p!(CloseSecureChannelRequest);
+
+impl Default for CloseSecureChannelRequest {
+    fn default() -> Self {
+        CloseSecureChannelRequest {
+            request_header: RequestHeader::default()
+        }
+    }
+}

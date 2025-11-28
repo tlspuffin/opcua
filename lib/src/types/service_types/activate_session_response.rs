@@ -66,3 +66,14 @@ impl BinaryEncoder<ActivateSessionResponse> for ActivateSessionResponse {
     }
 }
 crate::impl_codec_p!(ActivateSessionResponse);
+
+impl Default for ActivateSessionResponse {
+    fn default() -> Self {
+        ActivateSessionResponse {
+            response_header: ResponseHeader::null(),
+            server_nonce: ByteString::null(),
+            results: None,
+            diagnostic_infos: None
+        }
+    }
+}

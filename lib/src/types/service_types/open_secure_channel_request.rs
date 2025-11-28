@@ -13,6 +13,7 @@ use crate::types::{
     service_types::enums::SecurityTokenRequestType, service_types::impls::MessageInfo,
 };
 
+use std::default::Default;
 use std::io::{Read, Write};
 
 // Idea for the long-term: TODO1: CodecP, TODO2: Extractable, TODO3: Constructor
@@ -78,3 +79,15 @@ impl BinaryEncoder<OpenSecureChannelRequest> for OpenSecureChannelRequest {
 }
 
 crate::impl_codec_p!(OpenSecureChannelRequest);
+
+impl Default for OpenSecureChannelRequest {
+    fn default() -> Self {
+        OpenSecureChannelRequest {
+            request_header: RequestHeader::default(),
+            client_protocol_version: 0,
+            request_type: SecurityTokenRequestType::Issue,
+            security_mode: MessageSecurityMode::Sign,
+            client_nonce: ByteString::null(),
+            requested_lifetime: 0,
+    }}
+}

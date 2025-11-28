@@ -79,3 +79,16 @@ impl BinaryEncoder<ActivateSessionRequest> for ActivateSessionRequest {
     }
 }
 crate::impl_codec_p!(ActivateSessionRequest);
+
+impl Default for ActivateSessionRequest {
+    fn default() -> Self {
+        ActivateSessionRequest {
+            request_header: RequestHeader::default(),
+            client_signature: SignatureData::null(),
+            client_software_certificates: None,
+            locale_ids: None,
+            user_identity_token: ExtensionObject::null(),
+            user_token_signature: SignatureData::null()
+        }
+    }
+}

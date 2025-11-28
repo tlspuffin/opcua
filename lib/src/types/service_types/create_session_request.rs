@@ -89,3 +89,19 @@ impl BinaryEncoder<CreateSessionRequest> for CreateSessionRequest {
     }
 }
 crate::impl_codec_p!(CreateSessionRequest);
+
+impl Default for CreateSessionRequest {
+    fn default() -> Self {
+        CreateSessionRequest {
+            request_header: RequestHeader::default(),
+            client_description: ApplicationDescription::default(),
+            server_uri: UAString::null(),
+            endpoint_url: UAString::null(),
+            session_name: UAString::null(),
+            client_nonce: ByteString::null(),
+            client_certificate: ByteString::null(),
+            requested_session_timeout: 0.0,
+            max_response_message_size: 0,
+        }
+    }
+}

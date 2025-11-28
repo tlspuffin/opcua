@@ -46,3 +46,11 @@ impl BinaryEncoder<ServiceFault> for ServiceFault {
     }
 }
 crate::impl_codec_p!(ServiceFault);
+
+impl std::default::Default for ServiceFault {
+    fn default() -> Self {
+        ServiceFault {
+            response_header: ResponseHeader::null()
+        }
+    }
+}

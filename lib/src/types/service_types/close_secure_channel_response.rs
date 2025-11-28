@@ -46,3 +46,11 @@ impl BinaryEncoder<CloseSecureChannelResponse> for CloseSecureChannelResponse {
     }
 }
 crate::impl_codec_p!(CloseSecureChannelResponse);
+
+impl Default for CloseSecureChannelResponse {
+    fn default() -> Self {
+        CloseSecureChannelResponse {
+            response_header: ResponseHeader::null()
+        }
+    }
+}

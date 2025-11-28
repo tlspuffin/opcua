@@ -8,9 +8,10 @@ use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunk
 use crate::puffin::query::OpcuaQueryMatcher;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, ApplicationDescription, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, ExtensionObject, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, ServiceFault, SignatureData, UAString};
+    AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, CloseSecureChannelRequest, CloseSecureChannelResponse, CloseSessionRequest, CloseSessionResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse,ReverseHelloMessage, ServiceFault, UAString};
 
 use extractable_macro::Extractable;
+use paste::paste;
 
 use puffin::codec;
 use puffin::codec::{Codec, CodecP, Reader};
@@ -262,201 +263,85 @@ i.e. all possible OPC UA service requests before security is applied to them,
 and all possible responses after security has been removed from them.
 /!\ We use here a simplified enum type, called a [`ServiceMessage`]
 */
-#[derive(Debug, PartialEq, Clone, Extractable)]
-#[extractable(OpcuaProtocolTypes)]
-pub enum ServiceMessage {
-    None,
-    OpenSecureChannelRequest(OpenSecureChannelRequest),
-    OpenSecureChannelResponse(OpenSecureChannelResponse),
-    CloseSecureChannelRequest(CloseSecureChannelRequest),
-    CloseSecureChannelResponse(CloseSecureChannelResponse),
-    CreateSessionRequest(CreateSessionRequest),
-    CreateSessionResponse(CreateSessionResponse),
-    ActivateSessionRequest(ActivateSessionRequest),
-    ActivateSessionResponse(ActivateSessionResponse),
-    ServiceFault(ServiceFault),
-}
-
-impl Codec for ServiceMessage {
-    fn encode(&self, bytes: &mut Vec<u8>) {
-        match *self {
-            ServiceMessage::OpenSecureChannelRequest(ref r) => {
-                let id = NodeId {
-                    namespace: 0,
-                    identifier: Identifier::from(ObjectId::OpenSecureChannelRequest_Encoding_DefaultBinary as u32)
-                };
-                CodecP::encode(&id, bytes);
-                r.encode(bytes)},
-            ServiceMessage::OpenSecureChannelResponse(ref r) => {
-                let id = NodeId {
-                    namespace: 0,
-                    identifier: Identifier::from(ObjectId::OpenSecureChannelResponse_Encoding_DefaultBinary as u32)
-                };
-                CodecP::encode(&id, bytes);
-                r.encode(bytes)},
-            ServiceMessage::CloseSecureChannelRequest(ref r) => {
-                let id = NodeId {
-                    namespace: 0,
-                    identifier: Identifier::from(ObjectId::CloseSecureChannelRequest_Encoding_DefaultBinary as u32)
-                };
-                CodecP::encode(&id, bytes);
-                r.encode(bytes)},
-            ServiceMessage::CloseSecureChannelResponse(ref r) => {
-                let id = NodeId {
-                    namespace: 0,
-                    identifier: Identifier::from(ObjectId::CloseSecureChannelResponse_Encoding_DefaultBinary as u32)
-                };
-                CodecP::encode(&id, bytes);
-                r.encode(bytes)},
-            ServiceMessage::CreateSessionRequest(ref r) => {
-                let id = NodeId {
-                    namespace: 0,
-                    identifier: Identifier::from(ObjectId::CreateSessionRequest_Encoding_DefaultBinary as u32)
-                };
-                CodecP::encode(&id, bytes);
-                r.encode(bytes)},
-            ServiceMessage::CreateSessionResponse(ref r) => {
-                    let id = NodeId {
-                        namespace: 0,
-                        identifier: Identifier::from(ObjectId::CreateSessionResponse_Encoding_DefaultBinary as u32)
-                    };
-                    CodecP::encode(&id, bytes);
-                    r.encode(bytes)},
-            ServiceMessage::ActivateSessionRequest(ref r) => {
-                let id = NodeId {
-                    namespace: 0,
-                    identifier: Identifier::from(ObjectId::ActivateSessionRequest_Encoding_DefaultBinary as u32)
-                };
-                CodecP::encode(&id, bytes);
-                r.encode(bytes)},
-            ServiceMessage::ActivateSessionResponse(ref r) => {
-                let id = NodeId {
-                    namespace: 0,
-                    identifier: Identifier::from(ObjectId::ActivateSessionResponse_Encoding_DefaultBinary as u32)
-                };
-                CodecP::encode(&id, bytes);
-                r.encode(bytes)},
-            ServiceMessage::ServiceFault(ref r) => {
-                let id = NodeId {
-                    namespace: 0,
-                    identifier: Identifier::from(ObjectId::ServiceFault_Encoding_DefaultBinary as u32)
-                };
-                CodecP::encode(&id, bytes);
-                r.encode(bytes)},
-            ServiceMessage::None => ()
+macro_rules! service_message_enum {
+    [ $( $x:ident, ) * ] => (service_message_enum![ $( $x ),* ];);
+    [ $( $x:ident ), * ] => {
+        #[derive(Debug, PartialEq, Clone, Extractable)]
+        #[extractable(OpcuaProtocolTypes)]
+        pub enum ServiceMessage {
+            None,
+            ServiceFault(ServiceFault),
+            $( $x($x), )*
         }
-    }
 
-    fn read(rd: &mut Reader) -> Option<Self> {
-        let mut node_id = NodeId::null();
-        if let Ok(()) = CodecP::read(&mut node_id, rd) {
-            if let Identifier::Numeric(id) = node_id.identifier {
-                if let Ok(obj_id) = ObjectId::try_from(id) {
-                    match obj_id {
-                        ObjectId::OpenSecureChannelRequest_Encoding_DefaultBinary => {
-                            let mut open_request = OpenSecureChannelRequest {
-                                request_header: RequestHeader::default(),
-                                client_protocol_version: 0,
-                                request_type: SecurityTokenRequestType::Issue,
-                                security_mode: MessageSecurityMode::Sign,
-                                client_nonce: ByteString::null(),
-                                requested_lifetime: 0,
+        impl Codec for ServiceMessage {
+            fn encode(&self, bytes: &mut Vec<u8>) {
+                match *self {
+                  $(ServiceMessage::$x(ref r) => {
+                        paste! {
+                            let id = NodeId {
+                                namespace: 0,
+                                identifier: Identifier::from( ObjectId::[<$x _Encoding_DefaultBinary>] as u32)
                             };
-                            if let Ok(()) = CodecP::read(&mut open_request, rd) {
-                                return Some(ServiceMessage::OpenSecureChannelRequest(open_request))
-                            }
-                        },
-                        ObjectId::OpenSecureChannelResponse_Encoding_DefaultBinary => {
-                            let mut open_response = OpenSecureChannelResponse {
-                                response_header: ResponseHeader::null(),
-                                server_protocol_version: 0,
-                                security_token: ChannelSecurityToken::default(),
-                                server_nonce: ByteString::null()
-                            };
-                            if let Ok(()) = CodecP::read(&mut open_response, rd) {
-                                return Some(ServiceMessage::OpenSecureChannelResponse(open_response))
-                            }
-                        },
-                        ObjectId::CloseSecureChannelRequest_Encoding_DefaultBinary => {
-                            let mut close_request = CloseSecureChannelRequest {
-                                request_header: RequestHeader::default()
-                            };
-                            if let Ok(()) = CodecP::read(&mut close_request, rd) {
-                                return Some(ServiceMessage::CloseSecureChannelRequest(close_request))
-                            }
-                        },
-                        ObjectId::CloseSecureChannelResponse_Encoding_DefaultBinary => {
-                            let mut close_response = CloseSecureChannelResponse {
-                                response_header: ResponseHeader::null()
-                            };
-                            if let Ok(()) = CodecP::read(&mut close_response, rd) {
-                                return Some(ServiceMessage::CloseSecureChannelResponse(close_response))
-                            }
+                        CodecP::encode(&id, bytes);
                         }
-                        ObjectId::CreateSessionRequest_Encoding_DefaultBinary => {
-                            let mut create_request = CreateSessionRequest {
-                                request_header: RequestHeader::default(),
-                                client_description: ApplicationDescription::default(),
-                                server_uri: UAString::null(),
-                                endpoint_url: UAString::null(),
-                                session_name: UAString::null(),
-                                client_nonce: ByteString::null(),
-                                client_certificate: ByteString::null(),
-                                requested_session_timeout: 0.0,
-                                max_response_message_size: 0,
-                            };
-                            if let Ok(()) = CodecP::read(&mut create_request, rd) {
-                                return Some(ServiceMessage::CreateSessionRequest(create_request))
-                            }
-                        }
-                        ObjectId::CreateSessionResponse_Encoding_DefaultBinary => {
-                            let mut create_response = CreateSessionResponse {
-                                response_header: ResponseHeader::null(),
-                                session_id: NodeId::null(),
-                                authentication_token: NodeId::null(),
-                                revised_session_timeout: 0.0,
-                                server_nonce: ByteString::null(),
-                                server_certificate: ByteString::null(),
-                                server_endpoints: None,
-                                server_software_certificates: None,
-                                server_signature: SignatureData::null(),
-                                max_request_message_size: 0
-                            };
-                            if let Ok(()) = CodecP::read(&mut create_response, rd) {
-                                return Some(ServiceMessage::CreateSessionResponse(create_response))
-                            }
-                        }
-                        ObjectId::ActivateSessionRequest_Encoding_DefaultBinary => {
-                            let mut activate_request = ActivateSessionRequest {
-                                request_header: RequestHeader::default(),
-                                client_signature: SignatureData::null(),
-                                client_software_certificates: None,
-                                locale_ids: None,
-                                user_identity_token: ExtensionObject::null(),
-                                user_token_signature: SignatureData::null()
-                            };
-                            if let Ok(()) = CodecP::read(&mut activate_request, rd) {
-                                return Some(ServiceMessage::ActivateSessionRequest(activate_request))
-                            }
-                        }
-                        ObjectId::ServiceFault_Encoding_DefaultBinary => {
-                            let mut service_fault = ServiceFault {
-                                response_header: ResponseHeader::null()
-                            };
-                            if let Ok(()) = CodecP::read(&mut service_fault, rd) {
-                                log::error!("Service Fault: {}", service_fault.response_header.service_result);
-                                return Some(ServiceMessage::ServiceFault(service_fault))
-                            }
-                        }
-                        _ => return Some(ServiceMessage::None),
-                    }
+                        r.encode(bytes)
+                    }, )*
+                    ServiceMessage::ServiceFault(ref r) => {
+                        let id = NodeId {
+                            namespace: 0,
+                            identifier: Identifier::from(ObjectId::ServiceFault_Encoding_DefaultBinary as u32)
+                        };
+                        CodecP::encode(&id, bytes);
+                        r.encode(bytes)},
+                    ServiceMessage::None => ()
                 }
             }
-        };
-        Some(ServiceMessage::None)
-    }
 
-}
+            fn read(rd: &mut Reader) -> Option<Self> {
+                let mut node_id = NodeId::null();
+                if let Ok(()) = CodecP::read(&mut node_id, rd) {
+                    if let Identifier::Numeric(id) = node_id.identifier {
+                        if let Ok(obj_id) = ObjectId::try_from(id) {
+                            paste! {
+                            match obj_id {
+                                $(ObjectId::[<$x _Encoding_DefaultBinary>] => {
+                                    let mut r = $x::default();
+                                    if let Ok(()) = CodecP::read(&mut r, rd) {
+                                        return Some(ServiceMessage::$x(r))
+                                    }
+                                }, )*
+                                ObjectId::ServiceFault_Encoding_DefaultBinary => {
+                                    let mut service_fault = ServiceFault::default();
+                                    if let Ok(()) = CodecP::read(&mut service_fault, rd) {
+                                        log::error!("Service Fault: {}", service_fault.response_header.service_result);
+                                        return Some(ServiceMessage::ServiceFault(service_fault))
+                                    }
+                                },
+                                _ => return Some(ServiceMessage::None),
+                            }}
+                        }
+                    }
+                };
+                Some(ServiceMessage::None)
+            }
+
+        }
+}}
+
+service_message_enum![
+    OpenSecureChannelRequest,
+    OpenSecureChannelResponse,
+    CloseSecureChannelRequest,
+    CloseSecureChannelResponse,
+    CreateSessionRequest,
+    CreateSessionResponse,
+    ActivateSessionRequest,
+    ActivateSessionResponse,
+    CloseSessionRequest,
+    CloseSessionResponse,
+];
+
 
 #[derive(Debug, Clone, Extractable)]
 #[extractable(OpcuaProtocolTypes)]

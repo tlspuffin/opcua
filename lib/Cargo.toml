@@ -51,6 +51,7 @@ tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["codec"] }
 lazy_static = "1.4.0"
 regex = "1.7"
+paste = "1.0.6"
 serde = "1.0"
 serde_derive = "1.0"
 serde_yaml = "0.9"

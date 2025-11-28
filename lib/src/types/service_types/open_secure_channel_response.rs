@@ -12,6 +12,7 @@ use crate::types::{
     response_header::ResponseHeader, service_types::impls::MessageInfo,
     service_types::ChannelSecurityToken,
 };
+use std::default::Default;
 use std::io::{Read, Write};
 
 #[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
@@ -65,3 +66,14 @@ impl BinaryEncoder<OpenSecureChannelResponse> for OpenSecureChannelResponse {
     }
 }
 crate::impl_codec_p!(OpenSecureChannelResponse);
+
+impl Default for OpenSecureChannelResponse {
+   fn default() -> Self {
+        OpenSecureChannelResponse {
+            response_header: ResponseHeader::null(),
+            server_protocol_version: 0,
+            security_token: ChannelSecurityToken::default(),
+            server_nonce: ByteString::null()
+        }
+    }
+}
