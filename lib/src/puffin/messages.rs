@@ -5,17 +5,21 @@ use crate::core::comms::tcp_types::{
     CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
 use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunkType, MessageIsFinalType,
     SequenceHeader, StatusCode, SymmetricSecurityHeader};
+use crate::puffin::query::OpcuaQueryMatcher;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, ApplicationDescription, ByteString, ChannelSecurityToken, CloseSecureChannelRequest, CloseSecureChannelResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, ExtensionObject, HelloMessage, Identifier, MessageHeader, MessageSecurityMode, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, RequestHeader, ResponseHeader, ReverseHelloMessage, SecurityTokenRequestType, ServiceFault, SignatureData, UAString};
 
 use extractable_macro::Extractable;
+
+use puffin::codec;
 use puffin::codec::{Codec, CodecP, Reader};
 use puffin::error::Error;
 use puffin::protocol::{
+    Extractable,
     OpaqueProtocolMessage, OpaqueProtocolMessageFlight, ProtocolMessage,
     ProtocolMessageDeframer, ProtocolMessageFlight};
-use puffin::codec;
+use puffin::trace::{Knowledge, Source};
 
 use std::collections::VecDeque;
 use std::io;
@@ -490,8 +494,7 @@ impl CodecP for DecryptedBody {
     }
 }
 
-#[derive(Debug, Clone, Extractable)]
-#[extractable(OpcuaProtocolTypes)]
+#[derive(Debug, Clone)]
 pub struct MessageBody {
     pub security_header: SymmetricSecurityHeader,
     pub sequence_header: SequenceHeader,
@@ -526,6 +529,30 @@ impl CodecP for MessageBody {
         self.sequence_header.read(rd)?;
         self.request.read(rd)?;
         self.mac.read(rd)?;
+        Ok(())
+    }
+}
+
+impl Extractable<OpcuaProtocolTypes> for MessageBody {
+    fn extract_knowledge<'a> (
+        &'a self,
+        knowledges: &mut Vec<Knowledge<'a, OpcuaProtocolTypes>>,
+        _: Option<OpcuaQueryMatcher>,
+        source: &'a Source
+    ) -> Result<(), Error> {
+        let matcher = match &self.request {
+            ServiceMessage::CreateSessionResponse(_) => Some(OpcuaQueryMatcher::CreateSessionResponse),
+            _ => None
+        };
+        knowledges.push(Knowledge {
+            source,
+            matcher,
+            data: self
+        });
+        self.security_header.extract_knowledge(knowledges, matcher, source)?;
+        self.sequence_header.extract_knowledge(knowledges, matcher, source)?;
+        self.request.extract_knowledge(knowledges, matcher, source)?;
+        self.mac.extract_knowledge(knowledges, matcher, source)?;
         Ok(())
     }
 }

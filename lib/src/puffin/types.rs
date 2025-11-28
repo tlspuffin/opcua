@@ -3,7 +3,6 @@
 use puffin::agent::{AgentDescriptor, AgentName, ProtocolDescriptorConfig};
 use puffin::algebra::signature::Signature;
 use puffin::{atom_extract_knowledge, dummy_extract_knowledge};
-use puffin::algebra::AnyMatcher;
 use puffin::error::Error;
 use puffin::trace::{Knowledge, Source};
 
@@ -11,6 +10,7 @@ use puffin::protocol::{Extractable, ProtocolTypes};
 
 use serde_derive::{Deserialize, Serialize};
 
+use crate::puffin::query::OpcuaQueryMatcher;
 use crate::puffin::signature::fn_impl::CipherSuite;
 use crate::puffin::signature::OPCUA_SIGNATURE;
 
@@ -101,7 +101,7 @@ impl ProtocolDescriptorConfig for OpcuaDescriptorConfig {
 pub struct OpcuaProtocolTypes;
 
 impl ProtocolTypes for OpcuaProtocolTypes {
-    type Matcher = AnyMatcher; // OpcuaQueryMatcher;
+    type Matcher = OpcuaQueryMatcher;
     type PUTConfig = OpcuaDescriptorConfig;
 
     fn signature() -> &'static Signature<Self> {
