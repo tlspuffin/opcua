@@ -3,12 +3,13 @@ use crate::core::comms::tcp_types::{
     CHUNK_MESSAGE, OPEN_SECURE_CHANNEL_MESSAGE, CLOSE_SECURE_CHANNEL_MESSAGE,
     HELLO_MESSAGE, ACKNOWLEDGE_MESSAGE, ERROR_MESSAGE, REVERSE_HELLO_MESSAGE,
     CHUNK_FINAL, CHUNK_INTERMEDIATE, CHUNK_FINAL_ERROR};
-use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE, MessageChunkHeader, MessageChunkType, MessageIsFinalType,
+use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE,
+    AsymmetricSecurityHeader, MessageChunkHeader, MessageChunkType, MessageIsFinalType,
     SequenceHeader, StatusCode, SymmetricSecurityHeader};
 use crate::puffin::query::OpcuaQueryMatcher;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, CloseSecureChannelRequest, CloseSecureChannelResponse, CloseSessionRequest, CloseSessionResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse,ReverseHelloMessage, ServiceFault, UAString};
+    AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, BinaryEncoder, CloseSecureChannelRequest, CloseSecureChannelResponse, CloseSessionRequest, CloseSessionResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, ReverseHelloMessage, ServiceFault, UAString};
 
 use extractable_macro::Extractable;
 use paste::paste;
@@ -112,7 +113,7 @@ pub enum Message {
     Acknowledge(AcknowledgeMessage),
     Error(ErrorMessage),
     Reverse(ReverseHelloMessage),
-    Open(MessageChunkHeader, EncryptedBody),
+    Open(MessageChunkHeader, AsymmetricSecurityHeader, EncryptedBody),
     // without #[extractable_ignore] Trying to extract a dummy type: u8 (repeated many times)
     // with    #[extractable_ignore] EncryptedBody: error Unable to find variable (Some(Agent(AgentName(0))), 1)[None]/EncryptedBody!
     Chunk(MessageChunkHeader, MessageBody),
@@ -121,17 +122,18 @@ pub enum Message {
 impl Codec for Message {
     fn encode(&self, bytes: &mut Vec<u8>) {
         match *self {
-            Message::Hello(ref h) => h.encode(bytes),
-            Message::Acknowledge(ref a) => a.encode(bytes),
-            Message::Error(ref e) => e.encode(bytes),
-            Message::Reverse(ref r) => r.encode(bytes),
-            Message::Open(ref header, ref body) => {
-                header.encode(bytes);
-                body.encode(bytes);
+            Message::Hello(ref h) => CodecP::encode(h, bytes),
+            Message::Acknowledge(ref a) => CodecP::encode(a, bytes),
+            Message::Error(ref e) => CodecP::encode(e, bytes),
+            Message::Reverse(ref r) => CodecP::encode(r, bytes),
+            Message::Open(ref header, ref security, ref body) => {
+                CodecP::encode(header, bytes);
+                CodecP::encode(security, bytes);
+                CodecP::encode(body, bytes);
             }
             Message::Chunk(ref header, ref body ) => {
-                header.encode(bytes);
-                body.encode(bytes);
+                CodecP::encode(header, bytes);
+                CodecP::encode(body, bytes);
             }
         }
     }
@@ -175,28 +177,22 @@ impl Codec for Message {
                 else {None}
             }
             OPEN_SECURE_CHANNEL_MESSAGE => {
-                let mut header = MessageChunkHeader{
-                    message_type: MessageChunkType::OpenSecureChannel,
-                    is_final: MessageIsFinalType::Final,
-                    message_size: 0,
-                    secure_channel_id: 0
-                };
-                if let Ok(()) = MessageChunkHeader::read(&mut header, rd) {
-                    let size = (header.message_size as usize) - MESSAGE_CHUNK_HEADER_SIZE;
-                    if size < 1 { return None }
-                    let mut body = vec![0u8; size];
-                    if let Ok(()) = rd.read_exact(&mut body) {
-                        Some(Message::Open(header, EncryptedBody {cipher_text: body}))
-                    } else {None}
-                } else {None}
+                let mut header = MessageChunkHeader::default();
+                if let Err(_) = MessageChunkHeader::read(&mut header, rd) {return None}
+                let mut size = (header.message_size as usize) - MESSAGE_CHUNK_HEADER_SIZE;
+                let mut security = AsymmetricSecurityHeader::none();
+                if let Err(_) = AsymmetricSecurityHeader::read(&mut security, rd) {return None}
+                size = size - security.byte_len();
+                if size < 1 { return None }
+                let mut body = vec![0u8; size];
+                match rd.read_exact(&mut body) {
+                    Ok(()) => Some(
+                        Message::Open(header, security, EncryptedBody {cipher_text: body})),
+                    Err(_) => None
+                }
             }
             CLOSE_SECURE_CHANNEL_MESSAGE | CHUNK_MESSAGE => {
-                let mut header = MessageChunkHeader{
-                    message_type: MessageChunkType::OpenSecureChannel,
-                    is_final: MessageIsFinalType::Final,
-                    message_size: 0,
-                    secure_channel_id: 0
-                };
+                let mut header = MessageChunkHeader::default();
                 if let Ok(()) = MessageChunkHeader::read(&mut header, rd) {
                     let size = (header.message_size as usize) - MESSAGE_CHUNK_HEADER_SIZE;
                     if size < 1 { return None }
@@ -283,9 +279,9 @@ macro_rules! service_message_enum {
                                 namespace: 0,
                                 identifier: Identifier::from( ObjectId::[<$x _Encoding_DefaultBinary>] as u32)
                             };
-                        CodecP::encode(&id, bytes);
+                            CodecP::encode(&id, bytes);
                         }
-                        r.encode(bytes)
+                        CodecP::encode(r, bytes)
                     }, )*
                     ServiceMessage::ServiceFault(ref r) => {
                         let id = NodeId {
@@ -293,7 +289,8 @@ macro_rules! service_message_enum {
                             identifier: Identifier::from(ObjectId::ServiceFault_Encoding_DefaultBinary as u32)
                         };
                         CodecP::encode(&id, bytes);
-                        r.encode(bytes)},
+                        CodecP::encode(r, bytes)
+                    },
                     ServiceMessage::None => ()
                 }
             }

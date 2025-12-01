@@ -366,17 +366,8 @@ pub fn fn_asym_header (
     })
 }
 
-// fn_opcua_asym_encrypt(
-//     security header,
-//     ciphertext
-// )
-//
-// security_header = fn_asym_header(cipher_suite, sender_cert, receievr_cert)
-// ciphertext = fn_asym_encrypt(cipher_suite, receuver_crrt, data)
-
 
 pub fn fn_asym_encrypt (
-    security_header: &AsymmetricSecurityHeader,
     cipher_suite: &CipherSuite,
     receiver_certificate: &ByteString,
     data: &Vec<u8>,
@@ -406,9 +397,6 @@ pub fn fn_asym_encrypt (
                 };
             block_count * cipher_text_bloc_size
         };
-        // collect encrypted data in a buffer, starting with the security header in plain text
-        CodecP::encode(security_header, &mut buffer);
-
         let mut cipher_text= vec![0u8; cipher_text_size];
         // Encrypt data into buffer:
         let encrypted_size = security_policy.asymmetric_encrypt(
@@ -424,7 +412,6 @@ pub fn fn_asym_encrypt (
         buffer.extend_from_slice(&cipher_text);
     }
     else { // No asymmetric encryption.
-        CodecP::encode(security_header, &mut buffer);
         buffer.extend_from_slice(&data);
      };
     Ok(EncryptedBody{cipher_text: buffer})
@@ -432,30 +419,27 @@ pub fn fn_asym_encrypt (
 
 
 pub fn fn_asym_decrypt(
+    cipher_suite: &CipherSuite,
     body: &EncryptedBody,
     private_key: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
 
     // Read asymmetric security header:
     let mut rd = Reader::init(&body.cipher_text);
-    let mut security_header = AsymmetricSecurityHeader::none();
-    CodecP::read(&mut security_header, &mut rd)
-        .map_err( |_| {FnError::Crypto("Error reading asymmetric security header before decryption".to_string())})?;
-    let security_policy = SecurityPolicy::from_uri(security_header.security_policy_uri.as_ref());
+    let security_policy = cipher_suite.security_policy();
 
     match security_policy {
         SecurityPolicy::None => Ok(rd.rest().to_vec()),
         SecurityPolicy::Unknown => Err(FnError::Crypto("Cannot decrypt with no or an unknown security policy".to_string())),
         _ => {
             // decrypt payload:
-            let encrypted_range = security_header.byte_len() .. body.cipher_text.len();
-            let encrypted_size= encrypted_range.len();
+            let encrypted_size=  body.cipher_text.len();
             let mut decrypted_tmp = vec![0u8; encrypted_size];
             let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
                 .map(|value|{PrivateKey {value}})
                 .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
             let decrypted_size = security_policy.asymmetric_decrypt(&decryption_key,
-                &&body.cipher_text[encrypted_range],
+                &&body.cipher_text,
                 &mut decrypted_tmp)
                 .map_err( |_| {FnError::Crypto("Error during asymmetric decryption".to_string())})?;
 
@@ -598,9 +582,10 @@ pub fn fn_mac (
 
 pub fn fn_open_message (
     header: &MessageChunkHeader,
+    security: &AsymmetricSecurityHeader,
     body: &EncryptedBody,
 ) -> Result<Message, FnError> { 
-    Ok(Message::Open (header.clone(), body.clone()))
+    Ok(Message::Open (header.clone(), security.clone(), body.clone()))
 }
 
 pub fn fn_message (

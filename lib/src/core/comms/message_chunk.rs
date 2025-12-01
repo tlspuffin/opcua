@@ -326,3 +326,13 @@ impl MessageChunk {
         ChunkInfo::new(self, secure_channel)
     }
 }
+
+impl Default for MessageChunkHeader {
+    fn default() -> Self {
+        MessageChunkHeader{
+            message_type: MessageChunkType::OpenSecureChannel,
+            is_final: MessageIsFinalType::Final,
+            message_size: 0,
+            secure_channel_id: 0
+    }}
+}
