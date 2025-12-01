@@ -366,6 +366,15 @@ pub fn fn_asym_header (
     })
 }
 
+// fn_opcua_asym_encrypt(
+//     security header,
+//     ciphertext
+// )
+//
+// security_header = fn_asym_header(cipher_suite, sender_cert, receievr_cert)
+// ciphertext = fn_asym_encrypt(cipher_suite, receuver_crrt, data)
+
+
 pub fn fn_asym_encrypt (
     security_header: &AsymmetricSecurityHeader,
     cipher_suite: &CipherSuite,
