@@ -191,7 +191,7 @@ define_signature! {
     fn_signature_data
     fn_anonymous
     fn_legacy_user_pwd
-    fn_user_pwd
+    //fn_user_pwd
     fn_username
     fn_password
     fn_user_cert
