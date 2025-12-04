@@ -1,4 +1,4 @@
-// The OPC UA protocol types, adapted to puffin.
+// The OPC UA protocol types.
 
 use puffin::agent::{AgentDescriptor, AgentName, ProtocolDescriptorConfig};
 use puffin::algebra::signature::Signature;
@@ -14,22 +14,21 @@ use crate::puffin::query::OpcuaQueryMatcher;
 use crate::puffin::signature::fn_impl::CipherSuite;
 use crate::puffin::signature::OPCUA_SIGNATURE;
 
-// PUT configuration descriptor:
 
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, Serialize, Deserialize, PartialEq)]
 pub enum AgentType {
     Client,
     Server,
-    User,
+//    User,
 }
 
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Hash, Serialize, Deserialize, PartialEq)]
 pub enum OpcuaVersion {
     V1_4, // only RSA
     V1_5, // with ECC
 }
 
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize, PartialEq)]
 pub enum SessionSecurity {
     /// No Application Authentication, i.e. the server is configured
     /// to accept all client certificates and only use them for message security.
@@ -37,15 +36,16 @@ pub enum SessionSecurity {
     SSec,  // Normal Session Security
 }
 
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize, PartialEq)]
 pub enum UserToken {
     Anonymous,
     Password,
     Certificate,
 }
 
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub struct OpcuaDescriptorConfig {
+// OPC UA application configuration descriptor:
+#[derive(Clone, Debug, Hash, Serialize, Deserialize, PartialEq)]
+pub struct ApplicationConfig {
     pub version: OpcuaVersion,
     pub kind: AgentType,
     pub security_policy: CipherSuite,
@@ -53,7 +53,7 @@ pub struct OpcuaDescriptorConfig {
     pub utoken: UserToken,
 }
 
-impl Default for OpcuaDescriptorConfig {
+impl Default for ApplicationConfig {
     fn default() -> Self {
         Self {
             version: OpcuaVersion::V1_4,
@@ -65,14 +65,14 @@ impl Default for OpcuaDescriptorConfig {
     }
 }
 
-impl OpcuaDescriptorConfig {
+impl ApplicationConfig {
 
     pub fn new_client(
         name: AgentName,
     ) -> AgentDescriptor<Self> {
         AgentDescriptor {
             name,
-            protocol_config: OpcuaDescriptorConfig {
+            protocol_config: ApplicationConfig {
                 kind: AgentType::Client,
                 ..Self::default()
             }
@@ -89,9 +89,9 @@ impl OpcuaDescriptorConfig {
     }
 }
 
-impl ProtocolDescriptorConfig for OpcuaDescriptorConfig {
-    fn is_reusable_with(&self, _other: &Self) -> bool {
-        false
+impl ProtocolDescriptorConfig for ApplicationConfig {
+    fn is_reusable_with(&self, other: &Self) -> bool {
+        *self == *other
     }
 }
 
@@ -102,7 +102,7 @@ pub struct OpcuaProtocolTypes;
 
 impl ProtocolTypes for OpcuaProtocolTypes {
     type Matcher = OpcuaQueryMatcher;
-    type PUTConfig = OpcuaDescriptorConfig;
+    type PUTConfig = ApplicationConfig;
 
     fn signature() -> &'static Signature<Self> {
         &OPCUA_SIGNATURE
