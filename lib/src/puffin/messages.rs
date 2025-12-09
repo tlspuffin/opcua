@@ -212,7 +212,7 @@ impl codec::VecCodecWoSize for Message {}
 
 impl OpaqueProtocolMessage<OpcuaProtocolTypes> for Message {
     fn debug(&self, _info: &str) {
-        panic!("Not implemented for test stub");
+        panic!("Not implemented yet.");
     }
 }
 
@@ -224,7 +224,7 @@ impl ProtocolMessage<OpcuaProtocolTypes, Message> for Message {
     }
 
     fn debug(&self, _info: &str) {
-        panic!("Not implemented for test stub");
+        panic!("Not implemented yet.");
     }
 }
 

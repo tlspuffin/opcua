@@ -355,10 +355,13 @@ pub fn fn_asym_header (
 
     let security_policy = cipher_suite.security_policy();
     let receiver_certificate_thumbprint =
-        match X509::from_der(receiver_certificate.as_ref()) {
-            Ok(receiver_x509) => receiver_x509.thumbprint().as_byte_string(),
-            Err(_) => ByteString::null()
-        };
+        if *sender_certificate == ByteString::null() {
+            ByteString::null()
+        } else {
+            match X509::from_der(receiver_certificate.as_ref()) {
+                Ok(receiver_x509) => receiver_x509.thumbprint().as_byte_string(),
+                Err(_) => ByteString::null()
+        }};
     Ok(AsymmetricSecurityHeader {
         security_policy_uri: UAString::from(security_policy.to_uri()),
         sender_certificate: sender_certificate.clone(),
