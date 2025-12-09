@@ -434,10 +434,14 @@ pub fn fn_asym_decrypt(
         _ => {
             // decrypt payload:
             let encrypted_size=  body.cipher_text.len();
-            let mut decrypted_tmp = vec![0u8; encrypted_size];
             let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
                 .map(|value|{PrivateKey {value}})
                 .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
+            let cipher_text_block_size = decryption_key.cipher_text_block_size();
+            if encrypted_size % cipher_text_block_size != 0 {
+                return Err(FnError::Crypto("Cannot decrypt due to an inapropriate cipher text size".to_string()))
+            };
+            let mut decrypted_tmp = vec![0u8; encrypted_size];
             let decrypted_size = security_policy.asymmetric_decrypt(&decryption_key,
                 &&body.cipher_text,
                 &mut decrypted_tmp)
