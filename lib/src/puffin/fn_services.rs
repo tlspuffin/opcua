@@ -3,7 +3,7 @@ use puffin::algebra::error::FnError;
 use crate::crypto::{SecurityPolicy, X509, legacy_password_encrypt};
 use crate::puffin::messages::ServiceMessage;
 use crate::puffin::signature::{CipherSuite};
-use crate::types::{ActivateSessionRequest, AnonymousIdentityToken, ApplicationDescription, ApplicationType, BinaryEncoder, ByteString, CreateSessionRequest, ExtensionObject, LocalizedText, ObjectId, RequestHeader, SignatureData, UAString, UserNameIdentityToken, X509IdentityToken};
+use crate::types::{ActivateSessionRequest, AnonymousIdentityToken, ApplicationDescription, ApplicationType, BinaryEncoder, ByteString, CloseSessionRequest, CreateSessionRequest, ExtensionObject, LocalizedText, ObjectId, RequestHeader, SignatureData, UAString, UserNameIdentityToken, X509IdentityToken};
 
 pub fn fn_create_request (
     request_header: &RequestHeader,
@@ -227,4 +227,14 @@ pub fn fn_user_cert(
         &identity_token,
     );
     Ok(identity_token)
+}
+
+pub fn fn_close_request(
+    request_header: &RequestHeader
+) -> Result<ServiceMessage, FnError> {
+    let request = CloseSessionRequest {
+        request_header: request_header.clone(),
+        delete_subscriptions: true,
+    };
+    Ok(ServiceMessage::CloseSessionRequest(request))
 }

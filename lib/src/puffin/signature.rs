@@ -195,4 +195,5 @@ define_signature! {
     fn_username
     fn_password
     fn_user_cert
+    fn_close_request
 }
