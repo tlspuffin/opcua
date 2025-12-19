@@ -524,7 +524,7 @@ impl MessageDeframer {
         let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
         if let Some(msg) = Codec::read(&mut rd) {
             if let Message::Error(ref error_message) = msg {
-                log::error!("UA TCP {}: {:?}", message_debug,
+                log::warn!("UA TCP {}: {:?}", message_debug,
                     StatusCode::from_bits_retain(error_message.error).name());
             } else {
                 log::warn!("New UA TCP message received! ({})", message_debug);

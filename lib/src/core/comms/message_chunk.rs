@@ -7,7 +7,6 @@
 
 use std::io::{Cursor, Read, Write};
 
-use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{status_code::StatusCode, *};
 
 use super::{
@@ -22,6 +21,11 @@ use super::{
     },
 };
 
+use puffin::error::Error;
+use puffin::protocol::Extractable;
+use puffin::trace::{Knowledge, Source};
+use crate::puffin::query::OpcuaQueryMatcher;
+use crate::puffin::types::OpcuaProtocolTypes;
 use extractable_macro::Extractable;
 
 /// The size of a chunk header, used by several places
@@ -50,20 +54,38 @@ pub enum MessageIsFinalType {
     FinalError,
 }
 
-#[derive(Debug, Clone, PartialEq, Extractable)]
-#[extractable(OpcuaProtocolTypes)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct MessageChunkHeader {
     /// The kind of chunk - message, open or close
-    #[extractable_ignore]
     pub message_type: MessageChunkType,
     /// The chunk type - C == intermediate, F = the final chunk, A = the final chunk when aborting
-    #[extractable_ignore]
     pub is_final: MessageIsFinalType,
     /// The size of the chunk (message) including the header
-    #[extractable_ignore]
     pub message_size: u32,
     /// Secure channel id
     pub secure_channel_id: u32,
+}
+
+impl Extractable<OpcuaProtocolTypes> for MessageChunkHeader {
+    fn extract_knowledge<'a> (
+        &'a self,
+        knowledges: &mut Vec<Knowledge<'a, OpcuaProtocolTypes>>,
+        _: Option<OpcuaQueryMatcher>,
+        source: &'a Source
+    ) -> Result<(), Error> {
+        let matcher = match &self.message_type {
+            MessageChunkType::OpenSecureChannel => Some(OpcuaQueryMatcher::OpenSecureChannelResponse),
+            _ => None
+        };
+        knowledges.push(Knowledge {
+            source,
+            matcher,
+            data: self
+        });
+        // all fields are ignored, except:
+        self.secure_channel_id.extract_knowledge(knowledges, matcher, source)?;
+        Ok(())
+    }
 }
 
 impl BinaryEncoder<MessageChunkHeader> for MessageChunkHeader {
