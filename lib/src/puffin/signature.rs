@@ -107,6 +107,7 @@ define_signature! {
     fn_seq_8
     fn_seq_9
     fn_seq_10
+    fn_succ
 
     fn_open
     fn_close

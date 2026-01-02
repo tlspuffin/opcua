@@ -50,6 +50,9 @@ pub fn fn_seq_9() -> Result<u32, FnError> {
 pub fn fn_seq_10() -> Result<u32, FnError> {
     Ok(10)
 }
+pub fn fn_succ(val: &u32) -> Result<u32, FnError> {
+    Ok(*val +1)
+}
 
 pub fn fn_default_size() -> Result<u32, FnError> {
     Ok(MAX_WIRE_SIZE as u32)
