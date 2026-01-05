@@ -374,7 +374,7 @@ impl BinaryEncoder<NodeId> for NodeId {
                 NodeId::new(namespace, value)
             }
             _ => {
-                error!("Unrecognized node id type {}", identifier);
+                //error!("Unrecognized node id type {}", identifier);
                 return Err(StatusCode::BadDecodingError);
             }
         };

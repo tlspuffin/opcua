@@ -122,13 +122,13 @@ impl BinaryEncoder<ByteString> for ByteString {
         if len == -1 {
             Ok(ByteString::null())
         } else if len < -1 {
-            error!("ByteString buf length is a negative number {}", len);
+            // error!("ByteString buf length is a negative number {}", len);
             Err(StatusCode::BadDecodingError)
         } else if len as usize > decoding_options.max_byte_string_length {
-            error!(
-                "ByteString length {} exceeds decoding limit {}",
-                len, decoding_options.max_string_length
-            );
+            // error!(
+            //     "ByteString length {} exceeds decoding limit {}",
+            //     len, decoding_options.max_string_length
+            // );
             Err(StatusCode::BadDecodingError)
         } else {
             // Create a buffer filled with zeroes and read the byte string over the top

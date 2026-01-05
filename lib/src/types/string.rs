@@ -128,13 +128,13 @@ impl BinaryEncoder<UAString> for UAString {
         if len == -1 {
             Ok(UAString::null())
         } else if len < -1 {
-            error!("String buf length is a negative number {}", len);
+            // error!("String buf length is a negative number {}", len);
             Err(StatusCode::BadDecodingError)
         } else if len as usize > decoding_options.max_string_length {
-            error!(
-                "String buf length {} exceeds decoding limit {}",
-                len, decoding_options.max_string_length
-            );
+            // error!(
+            //     "String buf length {} exceeds decoding limit {}",
+            //     len, decoding_options.max_string_length
+            // );
             Err(StatusCode::BadDecodingError)
         } else {
             // Create a buffer filled with zeroes and read the string over the top
