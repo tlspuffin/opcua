@@ -3,7 +3,7 @@ use puffin::algebra::error::FnError;
 use crate::crypto::{SecurityPolicy, X509, legacy_password_encrypt};
 use crate::puffin::messages::ServiceMessage;
 use crate::puffin::signature::{CipherSuite};
-use crate::types::{ActivateSessionRequest, AnonymousIdentityToken, ApplicationDescription, ApplicationType, BinaryEncoder, ByteString, CloseSessionRequest, CreateSessionRequest, ExtensionObject, LocalizedText, ObjectId, RequestHeader, SignatureData, UAString, UserNameIdentityToken, X509IdentityToken};
+use crate::types::{ActivateSessionRequest, AnonymousIdentityToken, ApplicationDescription, ApplicationType, AttributeId, BinaryEncoder, ByteString, CloseSessionRequest, CreateSessionRequest, ExtensionObject, Identifier, LocalizedText, NodeId, ObjectId, QualifiedName, ReadRequest, ReadValueId, RequestHeader, SignatureData, TimestampsToReturn, UAString, UserNameIdentityToken, VariableId, X509IdentityToken};
 
 pub fn fn_create_request (
     request_header: &RequestHeader,
@@ -237,4 +237,26 @@ pub fn fn_close_request(
         delete_subscriptions: true,
     };
     Ok(ServiceMessage::CloseSessionRequest(request))
+}
+
+// Request server's current time.
+pub fn fn_read_current_time(
+    request_header: &RequestHeader
+) -> Result<ServiceMessage, FnError> {
+    let id = ReadValueId {
+        node_id: NodeId {
+            namespace: 0,
+            identifier: Identifier::from(VariableId::Server_ServerStatus_CurrentTime as u32)
+        },
+        attribute_id: AttributeId::Value as u32,
+        index_range: UAString::null(),
+        data_encoding: QualifiedName::null(),
+    };
+    let request = ReadRequest {
+        request_header: request_header.clone(),
+        max_age: 0.0,
+        timestamps_to_return: TimestampsToReturn::Neither,
+        nodes_to_read: Some(vec![id]),
+    };
+    Ok(ServiceMessage::ReadRequest(request))
 }

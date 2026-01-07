@@ -9,7 +9,7 @@ use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE,
 use crate::puffin::query::OpcuaQueryMatcher;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, BinaryEncoder, CloseSecureChannelRequest, CloseSecureChannelResponse, CloseSessionRequest, CloseSessionResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, ReverseHelloMessage, ServiceFault, UAString};
+    AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, BinaryEncoder, CloseSecureChannelRequest, CloseSecureChannelResponse, CloseSessionRequest, CloseSessionResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, ReadRequest, ReadResponse, ReverseHelloMessage, ServiceFault, UAString};
 
 use extractable_macro::Extractable;
 use paste::paste;
@@ -337,6 +337,8 @@ service_message_enum![
     ActivateSessionResponse,
     CloseSessionRequest,
     CloseSessionResponse,
+    ReadRequest,
+    ReadResponse,
 ];
 
 

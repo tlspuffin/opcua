@@ -197,4 +197,5 @@ define_signature! {
     fn_password
     fn_user_cert
     fn_close_request
+    fn_read_current_time
 }
