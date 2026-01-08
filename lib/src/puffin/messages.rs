@@ -311,7 +311,7 @@ macro_rules! service_message_enum {
                                 ObjectId::ServiceFault_Encoding_DefaultBinary => {
                                     let mut service_fault = ServiceFault::default();
                                     if let Ok(()) = CodecP::read(&mut service_fault, rd) {
-                                        log::error!("Service Fault: {}", service_fault.response_header.service_result);
+                                        log::warn!("Service Fault: {}", service_fault.response_header.service_result);
                                         return Some(ServiceMessage::ServiceFault(service_fault))
                                     }
                                 },
