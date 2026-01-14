@@ -14,7 +14,7 @@ pub fn fn_create_request (
     let request = CreateSessionRequest {
         request_header: request_header.clone(),
         client_description: ApplicationDescription {
-            application_uri: UAString::from("urn:Puffin"),
+            application_uri: UAString::from("opc.tcp://localhost:4840/opcuapuffin.mallory"),
             product_uri: UAString::from("urn:Puffin"),
             application_name: LocalizedText::from("Puffin"),
             application_type: ApplicationType::Client,

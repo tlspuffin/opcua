@@ -529,7 +529,7 @@ impl MessageDeframer {
                 log::warn!("UA TCP {}: {:?}", message_debug,
                     StatusCode::from_bits_retain(error_message.error).name());
             } else {
-                log::warn!("New UA TCP message received! ({})", message_debug);
+                log::warn!("UA TCP {}", message_debug);
             };
             let result = {
                 if let Message::Chunk(ref head,_) = msg {
@@ -546,7 +546,7 @@ impl MessageDeframer {
             self.consume(message_size);
             return result
         } else {
-            log::error!("Invalid UA TCP message! ({})", message_debug);
+            log::error!("UA TCP {}: invalid message!", message_debug);
             return BufferContent::Invalid
         }
     }

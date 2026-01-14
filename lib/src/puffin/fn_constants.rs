@@ -62,13 +62,13 @@ pub fn fn_size_8192() -> Result<u32, FnError> {
 }
 
 pub fn fn_bob_endpoint() -> Result<UAString, FnError> {
-    Ok(UAString::from("opc.tcp://localhost:4840/bob_server"))
+    Ok(UAString::from("opc.tcp://localhost:4840/opcuapuffin.bob"))
 }
 pub fn fn_oscar_uri() -> Result<UAString, FnError> {
     Ok(UAString::from("opc.tcp://127.0.0.1:4840"))
 }
 pub fn fn_oscar_endpoint() -> Result<UAString, FnError> {
-    Ok(UAString::from("opc.tcp://localhost:4840/OpcuaPuffinServerOscar"))
+    Ok(UAString::from("opc.tcp://localhost:4840/opcuapuffin.oscar"))
 }
 
 /// Various constants:
