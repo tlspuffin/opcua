@@ -31,11 +31,6 @@ pub struct CreateSessionResponse {
     pub max_request_message_size: u32,
 }
 
-
-// self.session_id.extract_knowldge()?:
-// self.aith_token.extract_knowldge(matcher_of_SAtoken)?;
-//Objectif: plus de shift magiques dans les queries.
-
 impl MessageInfo for CreateSessionResponse {
     fn object_id(&self) -> ObjectId {
         ObjectId::CreateSessionResponse_Encoding_DefaultBinary

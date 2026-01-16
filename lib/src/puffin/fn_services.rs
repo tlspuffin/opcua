@@ -1,9 +1,12 @@
+use std::vec;
+
 use puffin::algebra::error::FnError;
 
 use crate::crypto::{SecurityPolicy, X509, legacy_password_encrypt};
 use crate::puffin::messages::ServiceMessage;
+use crate::puffin::signature::fn_impl::{fn_basic256sha256, fn_oscar_cert, fn_oscar_endpoint};
 use crate::puffin::signature::{CipherSuite};
-use crate::types::{ActivateSessionRequest, AnonymousIdentityToken, ApplicationDescription, ApplicationType, AttributeId, BinaryEncoder, ByteString, CloseSessionRequest, CreateSessionRequest, ExtensionObject, Identifier, LocalizedText, NodeId, ObjectId, QualifiedName, ReadRequest, ReadValueId, RequestHeader, SignatureData, TimestampsToReturn, UAString, UserNameIdentityToken, VariableId, X509IdentityToken};
+use crate::types::{ActivateSessionRequest, AnonymousIdentityToken, ApplicationDescription, ApplicationType, AttributeId, BinaryEncoder, ByteString, CloseSessionRequest, CreateSessionRequest, EndpointDescription, ExtensionObject, GetEndpointsResponse, Identifier, LocalizedText, MessageSecurityMode, NodeId, ObjectId, QualifiedName, ReadRequest, ReadValueId, RequestHeader, ResponseHeader, SignatureData, TimestampsToReturn, UAString, UserNameIdentityToken, UserTokenPolicy, UserTokenType, VariableId, X509IdentityToken};
 
 pub fn fn_create_request (
     request_header: &RequestHeader,
@@ -259,4 +262,38 @@ pub fn fn_read_current_time(
         nodes_to_read: Some(vec![id]),
     };
     Ok(ServiceMessage::ReadRequest(request))
+}
+
+pub fn fn_endpoints(
+    response_header: &ResponseHeader
+) -> Result<ServiceMessage, FnError> {
+    let response = GetEndpointsResponse {
+        response_header: response_header.clone(),
+        endpoints: Some(vec![
+            EndpointDescription {
+                endpoint_url: fn_oscar_endpoint().unwrap(),
+                server: ApplicationDescription {
+                    application_uri: fn_oscar_endpoint().unwrap(),
+                    product_uri: UAString::from("https://github.com/tlspuffin/tlspuffin.git"),
+                    application_name: LocalizedText::from("OPC UA Puffin"),
+                    application_type: ApplicationType::Server,
+                    gateway_server_uri: UAString::null(),
+                    discovery_profile_uri: UAString::null(),
+                    discovery_urls: Some(vec![ fn_oscar_endpoint().unwrap() ]) },
+                server_certificate: fn_oscar_cert().unwrap(),
+                security_mode: MessageSecurityMode::Sign,
+                security_policy_uri: fn_basic256sha256().unwrap().security_policy().to_uri().into(),
+                user_identity_tokens: Some(vec![
+                    UserTokenPolicy{
+                        policy_id: UAString::from("open62541-certificate-policy-sign#Basic256Sha256"),
+                        token_type: UserTokenType::Certificate,
+                        issued_token_type: UAString::null(),
+                        issuer_endpoint_url: UAString::null(),
+                        security_policy_uri: UAString::null() },
+                ]),
+                transport_profile_uri: UAString::from("http://opcfoundation.org/UA-Profile/Transport/uatcp-uasc-uabinary"),
+                security_level: 20,
+            } ])
+    };
+    Ok(ServiceMessage::GetEndpointsResponse(response))
 }

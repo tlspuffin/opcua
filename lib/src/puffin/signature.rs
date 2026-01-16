@@ -172,6 +172,7 @@ define_signature! {
     fn_asym_decrypt
     fn_decrypted_body
     fn_open_message
+    fn_channel_token
     fn_get_channel_token
     fn_get_server_nonce
     fn_client_mac_key
@@ -198,4 +199,5 @@ define_signature! {
     fn_user_cert
     fn_close_request
     fn_read_current_time
+    fn_endpoints
 }

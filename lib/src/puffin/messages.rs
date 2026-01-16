@@ -9,7 +9,7 @@ use crate::prelude::{MESSAGE_CHUNK_HEADER_SIZE,
 use crate::puffin::query::OpcuaQueryMatcher;
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
-    AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, BinaryEncoder, CloseSecureChannelRequest, CloseSecureChannelResponse, CloseSessionRequest, CloseSessionResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, HelloMessage, Identifier, MessageHeader, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, ReadRequest, ReadResponse, ReverseHelloMessage, ServiceFault, UAString};
+    AcknowledgeMessage, ActivateSessionRequest, ActivateSessionResponse, BinaryEncoder, CloseSecureChannelRequest, CloseSecureChannelResponse, CloseSessionRequest, CloseSessionResponse, CreateSessionRequest, CreateSessionResponse, ErrorMessage, GetEndpointsRequest, GetEndpointsResponse, HelloMessage, Identifier, MessageHeader, MessageType, NodeId, ObjectId, OpenSecureChannelRequest, OpenSecureChannelResponse, ReadRequest, ReadResponse, ReverseHelloMessage, ServiceFault, UAString};
 
 use extractable_macro::Extractable;
 use paste::paste;
@@ -99,7 +99,7 @@ impl CodecP for ChunkType{
 /// However chunks make no distinction between:
 ///  - OpensecureChannel messages that are encrypted
 ///  - normal messages that are only protected by a MAC
-/// Therefore to avoid modifing the original code, we redefine a similar Message
+/// Therefore to avoid modifying the original code, we redefine a similar Message
 /// structure here that is more suited to the fuzzer.
 /// This Message structure is used as [`OpaqueProtocolMessage`].
 /// These messages are opaque in the sense that chunks may be encrypted.
@@ -339,6 +339,8 @@ service_message_enum![
     CloseSessionResponse,
     ReadRequest,
     ReadResponse,
+    GetEndpointsRequest,
+    GetEndpointsResponse,
 ];
 
 
@@ -512,6 +514,8 @@ impl MessageDeframer {
     fn try_deframe_one(&mut self) -> BufferContent {
         //log::warn!("Try deframe one UA TCP message (buffer size: {})", self.used);
         if self.used < MESSAGE_HEADER_LEN { return BufferContent::Partial }
+        let mut message_start = [0u8; 3];
+        message_start.clone_from_slice(&self.buffer[0..3]);
         let mut rd = codec::Reader::init(&self.buffer[0..MESSAGE_HEADER_LEN]);
         let mut message_header = MessageHeader::new(MessageType::Hello);
         let result = MessageHeader::read(&mut message_header, &mut rd);
@@ -522,7 +526,8 @@ impl MessageDeframer {
         if message_size > self.used {
             return BufferContent::Partial
         }
-        let message_debug = format!("{:?}, {:?} bytes", message_header.message_type, message_size);
+        let message_debug = format!("{}, {} bytes",
+            core::str::from_utf8(&message_start).unwrap(), message_size);
         let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
         if let Some(msg) = Codec::read(&mut rd) {
             if let Message::Error(ref error_message) = msg {

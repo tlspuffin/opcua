@@ -13,7 +13,11 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq)]
+use extractable_macro::Extractable;
+use crate::puffin::types::OpcuaProtocolTypes;
+
+#[derive(Debug, Clone, PartialEq, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct GetEndpointsResponse {
     pub response_header: ResponseHeader,
     pub endpoints: Option<Vec<EndpointDescription>>,
@@ -49,5 +53,16 @@ impl BinaryEncoder<GetEndpointsResponse> for GetEndpointsResponse {
             response_header,
             endpoints,
         })
+    }
+}
+
+crate::impl_codec_p!(GetEndpointsResponse);
+
+impl Default for GetEndpointsResponse {
+    fn default() -> Self {
+        GetEndpointsResponse {
+            response_header: ResponseHeader::null(),
+            endpoints: None,
+        }
     }
 }

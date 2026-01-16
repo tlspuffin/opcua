@@ -514,6 +514,12 @@ pub fn fn_get_channel_token(
     }
 }
 
+pub fn fn_channel_token(
+    token_id: &u32
+) -> Result<SymmetricSecurityHeader, FnError> {
+    Ok(SymmetricSecurityHeader {token_id: *token_id})
+}
+
 pub fn fn_get_server_nonce(
     open_response: &DecryptedBody
 ) -> Result<ByteString, FnError> {
