@@ -186,6 +186,7 @@ define_signature! {
     fn_client_open
     fn_server_open
     fn_client_close
+    fn_server_close
 
     //services
     fn_create_request

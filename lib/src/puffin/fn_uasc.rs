@@ -12,9 +12,10 @@ use crate::puffin::messages::{ChunkType, DecryptedBody, EncryptedBody, Message, 
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{ByteString, ChannelSecurityToken, DateTime, DiagnosticBits, DiagnosticInfo, ExtensionObject,
-    MessageSecurityMode, NodeId, OpenSecureChannelResponse, RequestHeader, ResponseHeader, SecurityTokenRequestType,
+    MessageSecurityMode, NodeId, RequestHeader, ResponseHeader, SecurityTokenRequestType,
     StatusCode, UAString, UtcTime};
-use crate::types::service_types::{CloseSecureChannelRequest, OpenSecureChannelRequest};
+use crate::types::service_types::{OpenSecureChannelRequest, OpenSecureChannelResponse, CloseSecureChannelRequest,
+    CloseSecureChannelResponse};
 
 use extractable_macro::Extractable;
 
@@ -681,4 +682,13 @@ pub fn fn_client_close (
         request_header: request_header.clone(),
     };
     Ok(ServiceMessage::CloseSecureChannelRequest(request))
+}
+
+pub fn fn_server_close (
+    response_header: &ResponseHeader,
+) -> Result<ServiceMessage, FnError> {
+    let response = CloseSecureChannelResponse {
+        response_header: response_header.clone(),
+    };
+    Ok(ServiceMessage::CloseSecureChannelResponse(response))
 }
