@@ -428,6 +428,7 @@ impl Extractable<OpcuaProtocolTypes> for MessageBody {
     ) -> Result<(), Error> {
         let matcher = match &self.request {
             ServiceMessage::CreateSessionResponse(_) => Some(OpcuaQueryMatcher::CreateSessionResponse),
+            ServiceMessage::ActivateSessionResponse(_) => Some(OpcuaQueryMatcher::ActivateSessionResponse),
             _ => None
         };
         knowledges.push(Knowledge {

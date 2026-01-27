@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum OpcuaQueryMatcher {
     OpenSecureChannelResponse,
     CreateSessionResponse,
+    ActivateSessionResponse,
     EnndpointSignMode,
     PolicyIdAnonymous,
     PolicyIdPassword,
@@ -16,6 +17,7 @@ impl Matcher for OpcuaQueryMatcher {
         match matcher {
             OpcuaQueryMatcher::OpenSecureChannelResponse => matches!(self, OpcuaQueryMatcher::OpenSecureChannelResponse),
             OpcuaQueryMatcher::CreateSessionResponse => matches!(self, OpcuaQueryMatcher::CreateSessionResponse),
+            OpcuaQueryMatcher::ActivateSessionResponse => matches!(self, OpcuaQueryMatcher::ActivateSessionResponse),
             OpcuaQueryMatcher::EnndpointSignMode => matches!(self, OpcuaQueryMatcher::EnndpointSignMode),
             OpcuaQueryMatcher::PolicyIdAnonymous => matches!(self, OpcuaQueryMatcher::PolicyIdAnonymous),
             OpcuaQueryMatcher::PolicyIdPassword => matches!(self, OpcuaQueryMatcher::PolicyIdPassword),
