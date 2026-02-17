@@ -298,7 +298,7 @@ pub fn fn_sign(
     };
     let signing_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
         .map(|value|{PrivateKey {value}})
-        .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
+        .map_err( |_| {FnError::Crypto("fn_sign: error reading private key (PKCS #8 with DER)".to_string())})?;
     let mut signature = vec![0u8; signature_size];
     security_policy.asymmetric_sign(&signing_key, data, &mut signature)
         .map_err( |_| {FnError::Crypto("Error during signing".to_string())})?;
@@ -440,10 +440,10 @@ pub fn fn_asym_decrypt(
             let encrypted_size=  body.cipher_text.len();
             let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
                 .map(|value|{PrivateKey {value}})
-                .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
+                .map_err( |_| {FnError::Crypto("fn_asym_decrypt: error reading private key (PKCS #8 with DER)".to_string())})?;
             let cipher_text_block_size = decryption_key.cipher_text_block_size();
             if encrypted_size % cipher_text_block_size != 0 {
-                return Err(FnError::Crypto("Cannot decrypt due to an inapropriate cipher text size".to_string()))
+                return Err(FnError::Crypto("Cannot decrypt due to an inappropriate cipher text size".to_string()))
             };
             let mut decrypted_tmp = vec![0u8; encrypted_size];
             let decrypted_size = security_policy.asymmetric_decrypt(&decryption_key,
@@ -474,8 +474,7 @@ pub fn fn_decrypted_body(
         // get decryption key:
         let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
         .map(|value|{PrivateKey {value}})
-        .map_err( |_| {FnError::Crypto("Error reading private key in PKCS #8 format with DER encoding".to_string())})?;
-
+        .map_err( |_| -> FnError {FnError::Crypto("fn_decrypted_body: error reading private key (PKCS #8 with DER)".to_string())})?;
         let mut padding_byte: u8 = 0;
         padding_byte.read(&mut rd)
             .map_err(|e| FnError::Crypto(format!("fn_decrypted_body cannot read padding: {e}")))?;
