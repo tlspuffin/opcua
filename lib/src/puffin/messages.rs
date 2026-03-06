@@ -108,7 +108,7 @@ impl CodecP for ChunkType{
 
 #[derive(Debug, Clone, Extractable)]
 #[extractable(OpcuaProtocolTypes)]
-pub enum Message {
+pub enum UaMessage {
     Hello(HelloMessage),
     Acknowledge(AcknowledgeMessage),
     Error(ErrorMessage),
@@ -119,19 +119,19 @@ pub enum Message {
     Chunk(MessageChunkHeader, MessageBody),
 }
 
-impl Codec for Message {
+impl Codec for UaMessage {
     fn encode(&self, bytes: &mut Vec<u8>) {
         match *self {
-            Message::Hello(ref h) => CodecP::encode(h, bytes),
-            Message::Acknowledge(ref a) => CodecP::encode(a, bytes),
-            Message::Error(ref e) => CodecP::encode(e, bytes),
-            Message::Reverse(ref r) => CodecP::encode(r, bytes),
-            Message::Open(ref header, ref security, ref body) => {
+            UaMessage::Hello(ref h) => CodecP::encode(h, bytes),
+            UaMessage::Acknowledge(ref a) => CodecP::encode(a, bytes),
+            UaMessage::Error(ref e) => CodecP::encode(e, bytes),
+            UaMessage::Reverse(ref r) => CodecP::encode(r, bytes),
+            UaMessage::Open(ref header, ref security, ref body) => {
                 CodecP::encode(header, bytes);
                 CodecP::encode(security, bytes);
                 CodecP::encode(body, bytes);
             }
-            Message::Chunk(ref header, ref body ) => {
+            UaMessage::Chunk(ref header, ref body ) => {
                 CodecP::encode(header, bytes);
                 CodecP::encode(body, bytes);
             }
@@ -143,7 +143,7 @@ impl Codec for Message {
         match head {
             HELLO_MESSAGE => {
                 let mut h = HelloMessage::new(&"",0,0,0,0);
-                if let Ok(()) = HelloMessage::read(&mut h, rd) {Some(Message::Hello(h))}
+                if let Ok(()) = HelloMessage::read(&mut h, rd) {Some(UaMessage::Hello(h))}
                 else {None}
             }
             ACKNOWLEDGE_MESSAGE => {
@@ -155,7 +155,7 @@ impl Codec for Message {
                     max_message_size: 0,
                     max_chunk_count: 0
                 };
-                if let Ok(()) = AcknowledgeMessage::read(&mut a, rd) {Some(Message::Acknowledge(a))}
+                if let Ok(()) = AcknowledgeMessage::read(&mut a, rd) {Some(UaMessage::Acknowledge(a))}
                 else {None}
             }
             REVERSE_HELLO_MESSAGE => {
@@ -164,7 +164,7 @@ impl Codec for Message {
                     server_uri: UAString::null(),
                     endpoint_url: UAString::null()
                 };
-                if let Ok(()) = ReverseHelloMessage::read(&mut r, rd) {Some(Message::Reverse(r))}
+                if let Ok(()) = ReverseHelloMessage::read(&mut r, rd) {Some(UaMessage::Reverse(r))}
                 else {None}
             }
             ERROR_MESSAGE => {
@@ -173,7 +173,7 @@ impl Codec for Message {
                     error: 0,
                     reason: UAString::null()
                 };
-                if let Ok(()) = ErrorMessage::read(&mut e, rd) {Some(Message::Error(e))}
+                if let Ok(()) = ErrorMessage::read(&mut e, rd) {Some(UaMessage::Error(e))}
                 else {None}
             }
             OPEN_SECURE_CHANNEL_MESSAGE => {
@@ -187,7 +187,7 @@ impl Codec for Message {
                 let mut body = vec![0u8; size];
                 match rd.read_exact(&mut body) {
                     Ok(()) => Some(
-                        Message::Open(header, security, EncryptedBody {cipher_text: body})),
+                        UaMessage::Open(header, security, EncryptedBody {cipher_text: body})),
                     Err(_) => None
                 }
             }
@@ -198,7 +198,7 @@ impl Codec for Message {
                     if size < 1 { return None }
                     let mut body = MessageBody::default();
                     if let Ok(()) = CodecP::read(&mut body, rd) {
-                        Some(Message::Chunk(header, body))
+                        Some(UaMessage::Chunk(header, body))
                     } else {None}
                 } else {None}
             }
@@ -208,7 +208,29 @@ impl Codec for Message {
     }
 }
 
+impl codec::VecCodecWoSize for UaMessage {}
+
+
+#[derive(Debug, Clone, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
+pub struct Message {
+    pub connexion: u8,
+    pub message: UaMessage
+}
+
+impl Codec for Message {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        CodecP::encode(&self.connexion, bytes);
+        CodecP::encode(&self.message, bytes);
+    }
+
+    fn read(rd: &mut Reader) -> Option<Self> {
+        return None
+    }
+}
+
 impl codec::VecCodecWoSize for Message {}
+
 
 impl OpaqueProtocolMessage<OpcuaProtocolTypes> for Message {
     fn debug(&self, _info: &str) {
@@ -514,10 +536,10 @@ impl MessageDeframer {
     /// and store it in "frames". We just read the MessageHeader.
     fn try_deframe_one(&mut self) -> BufferContent {
         //log::warn!("Try deframe one UA TCP message (buffer size: {})", self.used);
-        if self.used < MESSAGE_HEADER_LEN { return BufferContent::Partial }
+        if self.used < MESSAGE_HEADER_LEN+1 { return BufferContent::Partial }
         let mut message_start = [0u8; 3];
-        message_start.clone_from_slice(&self.buffer[0..3]);
-        let mut rd = codec::Reader::init(&self.buffer[0..MESSAGE_HEADER_LEN]);
+        message_start.clone_from_slice(&self.buffer[1..4]);
+        let mut rd = codec::Reader::init(&self.buffer[1..MESSAGE_HEADER_LEN+1]);
         let mut message_header = MessageHeader::new(MessageType::Hello);
         let result = MessageHeader::read(&mut message_header, &mut rd);
         if let Err(_) = result {
@@ -529,16 +551,17 @@ impl MessageDeframer {
         }
         let message_debug = format!("{}, {} bytes",
             core::str::from_utf8(&message_start).unwrap(), message_size);
-        let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
+        let mut rd = codec::Reader::init(&self.buffer[0..message_size+1]);
+        let connexion: u8 = Codec::read(&mut rd).unwrap();
         if let Some(msg) = Codec::read(&mut rd) {
-            if let Message::Error(ref error_message) = msg {
+            if let UaMessage::Error(ref error_message) = msg {
                 log::warn!("UA TCP {}: {:?}", message_debug,
                     StatusCode::from_bits_retain(error_message.error).name());
             } else {
                 log::warn!("UA TCP {}", message_debug);
             };
             let result = {
-                if let Message::Chunk(ref head,_) = msg {
+                if let UaMessage::Chunk(ref head,_) = msg {
                     if head.is_final == MessageIsFinalType::Intermediate {
                         BufferContent::Partial
                     } else {
@@ -548,7 +571,7 @@ impl MessageDeframer {
                     BufferContent::Valid
                 }
             };
-            self.frames.push_back(msg);
+            self.frames.push_back(Message{connexion, message: msg});
             self.consume(message_size);
             return result
         } else {
@@ -651,7 +674,7 @@ impl Codec for MessageFlight {
         while let Some(msg) = deframer.pop_frame() {
             OpaqueProtocolMessageFlight::push(&mut flight, msg);
             // continue to read the buffer
-            let _ = deframer.read(&mut reader.rest());
+            //let _ = deframer.read(&mut reader.rest());
         }
         Some(flight)
     }

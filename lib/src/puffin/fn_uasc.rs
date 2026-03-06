@@ -8,7 +8,7 @@ use puffin::error::Error;
 
 use crate::crypto::{KeySize, PKey, PrivateKey, RsaPadding, SecurityPolicy, X509};
 use crate::prelude::{AsymmetricSecurityHeader, MessageChunkHeader, SequenceHeader, SymmetricSecurityHeader};
-use crate::puffin::messages::{ChunkType, DecryptedBody, EncryptedBody, Message, MessageBody, ServiceMessage};
+use crate::puffin::messages::{ChunkType, DecryptedBody, EncryptedBody, Message, MessageBody, ServiceMessage, UaMessage};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{ByteString, ChannelSecurityToken, DateTime, DiagnosticBits, DiagnosticInfo, ExtensionObject,
@@ -594,18 +594,26 @@ pub fn fn_mac (
 }
 
 pub fn fn_open_message (
+    connexion: &u8,
     header: &MessageChunkHeader,
     security: &AsymmetricSecurityHeader,
     body: &EncryptedBody,
-) -> Result<Message, FnError> { 
-    Ok(Message::Open (header.clone(), security.clone(), body.clone()))
+) -> Result<Message, FnError> {
+    Ok(Message{
+        connexion: *connexion,
+        message: UaMessage::Open (header.clone(), security.clone(), body.clone())
+    })
 }
 
 pub fn fn_message (
+    connexion: &u8,
     header: &MessageChunkHeader,
     body: &MessageBody,
 ) -> Result<Message, FnError> {
-    Ok(Message::Chunk (header.clone(), body.clone()))
+    Ok(Message{
+        connexion: *connexion,
+        message: UaMessage::Chunk (header.clone(), body.clone())
+      })
 }
 
 pub fn fn_request_header (

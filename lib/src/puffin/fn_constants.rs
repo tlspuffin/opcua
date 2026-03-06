@@ -17,6 +17,14 @@ pub fn fn_false() -> Result<bool, FnError> {
     Ok(false)
 }
 
+pub fn fn_tcp_1() -> Result<u8, FnError> {
+    Ok(1)
+}
+
+pub fn fn_tcp_2() -> Result<u8, FnError> {
+    Ok(2)
+}
+
 pub fn fn_seq_0() -> Result<u32, FnError> {
     Ok(0)
 }

@@ -3,7 +3,7 @@ use puffin::algebra::dynamic_function::FunctionAttributes;
 use puffin::algebra::error::FnError;
 use puffin::define_signature;
 use crate::prelude::MessageType;
-use crate::puffin::messages::Message;
+use crate::puffin::messages::{Message, UaMessage};
 use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::encoding::BinaryEncoder;
 use crate::types::{
@@ -27,6 +27,7 @@ pub mod fn_impl {
 
 /// Reverse Hello
 pub fn fn_server_hello (
+    connexion: &u8,
     server_uri:  &UAString,
     endpoint_url: &UAString,
 ) -> Result<Message, FnError> {
@@ -36,11 +37,15 @@ pub fn fn_server_hello (
         endpoint_url: endpoint_url.clone()
     };
     msg.message_header.message_size = msg.byte_len() as u32;
-    Ok(Message::Reverse(msg))
+    Ok(Message{
+        connexion: *connexion,
+        message: UaMessage::Reverse(msg)
+    })
 }
 
 /// Hello
 pub fn fn_client_hello (
+    connexion: &u8,
     endpoint_url: &UAString,
     send_buffer_size: &u32,
     receive_buffer_size: &u32
@@ -55,11 +60,15 @@ pub fn fn_client_hello (
         endpoint_url: endpoint_url.clone()
     };
     msg.message_header.message_size = msg.byte_len() as u32;
-    Ok(Message::Hello(msg))
+    Ok(Message{
+        connexion: *connexion,
+        message: UaMessage::Hello(msg)
+    })
 }
 
 /// Acknowledge
 pub fn fn_acknowledge (
+    connexion: &u8,
     receive_buffer_size: &u32,
     send_buffer_size: &u32,
 ) -> Result<Message, FnError> {
@@ -72,11 +81,15 @@ pub fn fn_acknowledge (
         max_chunk_count: 0,   // 0: Server has no limit
     };
     msg.message_header.message_size = msg.byte_len() as u32;
-    Ok(Message::Acknowledge(msg))
+    Ok(Message{
+        connexion: *connexion,
+        message: UaMessage::Acknowledge(msg)
+    })
 }
 
 /// Error
 pub fn fn_error (
+    connexion: &u8,
     error_code: &u32,
     reason: &UAString
 ) -> Result<Message, FnError> {
@@ -86,7 +99,10 @@ pub fn fn_error (
         reason: reason.clone(),
     };
     msg.message_header.message_size = msg.byte_len() as u32;
-    Ok(Message::Error(msg))
+    Ok(Message{
+        connexion: *connexion,
+        message: UaMessage::Error(msg)
+    })
 }
 
 
@@ -95,6 +111,9 @@ define_signature! {
     // constants
     fn_true
     fn_false
+
+    fn_tcp_1
+    fn_tcp_2
 
     fn_seq_0
     fn_seq_1
