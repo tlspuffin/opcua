@@ -38,7 +38,7 @@ pub fn fn_server_hello (
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(Message{
-        connexion: *connexion,
+        connexion_id: *connexion,
         message: UaMessage::Reverse(msg)
     })
 }
@@ -61,7 +61,7 @@ pub fn fn_client_hello (
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(Message{
-        connexion: *connexion,
+        connexion_id: *connexion,
         message: UaMessage::Hello(msg)
     })
 }
@@ -82,7 +82,7 @@ pub fn fn_acknowledge (
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(Message{
-        connexion: *connexion,
+        connexion_id: *connexion,
         message: UaMessage::Acknowledge(msg)
     })
 }
@@ -100,7 +100,7 @@ pub fn fn_error (
     };
     msg.message_header.message_size = msg.byte_len() as u32;
     Ok(Message{
-        connexion: *connexion,
+        connexion_id: *connexion,
         message: UaMessage::Error(msg)
     })
 }

@@ -210,17 +210,35 @@ impl Codec for UaMessage {
 
 impl codec::VecCodecWoSize for UaMessage {}
 
+impl OpaqueProtocolMessage<OpcuaProtocolTypes> for UaMessage {
+    fn debug(&self, _info: &str) {
+        panic!("Not implemented yet.");
+    }
+}
+
+// /!\ a ServiceMessage may be encoded as a MessageFlight and not
+//     only as a single message.
+impl ProtocolMessage<OpcuaProtocolTypes, UaMessage> for UaMessage {
+    fn create_opaque(&self) -> UaMessage {
+        self.clone()
+    }
+
+    fn debug(&self, _info: &str) {
+        panic!("Not implemented yet.");
+    }
+}
+
 
 #[derive(Debug, Clone, Extractable)]
 #[extractable(OpcuaProtocolTypes)]
 pub struct Message {
-    pub connexion: u8,
+    pub connexion_id: u8,
     pub message: UaMessage
 }
 
 impl Codec for Message {
     fn encode(&self, bytes: &mut Vec<u8>) {
-        CodecP::encode(&self.connexion, bytes);
+        CodecP::encode(&self.connexion_id, bytes);
         CodecP::encode(&self.message, bytes);
     }
 
@@ -472,7 +490,7 @@ impl Extractable<OpcuaProtocolTypes> for MessageBody {
 // and the trait should only implement "try_deframe_one"?
 pub struct MessageDeframer {
     /// Complete chunks ready to be deciphered.
-    pub frames: VecDeque<Message>,
+    pub frames: VecDeque<UaMessage>,
     /// A fixed-size buffer containing a bunch of OPC UA messages, or only a part of one.
     buffer: Box<[u8; MAX_WIRE_SIZE]>,
     /// What part of buffer is used.
@@ -536,10 +554,10 @@ impl MessageDeframer {
     /// and store it in "frames". We just read the MessageHeader.
     fn try_deframe_one(&mut self) -> BufferContent {
         //log::warn!("Try deframe one UA TCP message (buffer size: {})", self.used);
-        if self.used < MESSAGE_HEADER_LEN+1 { return BufferContent::Partial }
+        if self.used < MESSAGE_HEADER_LEN { return BufferContent::Partial }
         let mut message_start = [0u8; 3];
-        message_start.clone_from_slice(&self.buffer[1..4]);
-        let mut rd = codec::Reader::init(&self.buffer[1..MESSAGE_HEADER_LEN+1]);
+        message_start.clone_from_slice(&self.buffer[0..3]);
+        let mut rd = codec::Reader::init(&self.buffer[0..MESSAGE_HEADER_LEN]);
         let mut message_header = MessageHeader::new(MessageType::Hello);
         let result = MessageHeader::read(&mut message_header, &mut rd);
         if let Err(_) = result {
@@ -551,8 +569,7 @@ impl MessageDeframer {
         }
         let message_debug = format!("{}, {} bytes",
             core::str::from_utf8(&message_start).unwrap(), message_size);
-        let mut rd = codec::Reader::init(&self.buffer[0..message_size+1]);
-        let connexion: u8 = Codec::read(&mut rd).unwrap();
+        let mut rd = codec::Reader::init(&self.buffer[0..message_size]);
         if let Some(msg) = Codec::read(&mut rd) {
             if let UaMessage::Error(ref error_message) = msg {
                 log::warn!("UA TCP {}: {:?}", message_debug,
@@ -571,7 +588,7 @@ impl MessageDeframer {
                     BufferContent::Valid
                 }
             };
-            self.frames.push_back(Message{connexion, message: msg});
+            self.frames.push_back(msg);
             self.consume(message_size);
             return result
         } else {
@@ -592,9 +609,9 @@ impl MessageDeframer {
 }
 
 impl ProtocolMessageDeframer<OpcuaProtocolTypes> for MessageDeframer {
-    type OpaqueProtocolMessage = Message;
+    type OpaqueProtocolMessage = UaMessage;
 
-    fn pop_frame(&mut self) -> Option<Message> {
+    fn pop_frame(&mut self) -> Option<UaMessage> {
         self.frames.pop_front()
     }
 
@@ -619,7 +636,7 @@ impl ProtocolMessageFlight<OpcuaProtocolTypes, Message, Message, MessageFlight>
     }
 }
 
-/// All chunks of a complete UA TCP message are grouped into an [`OpaqueProtocolMessageFlight`]
+/// All chunks of a complete TCP message are grouped into an [`OpaqueProtocolMessageFlight`]
 /// that can be exchanged with the target (PUT)
 #[derive(Debug, Clone, Extractable)]
 #[extractable(OpcuaProtocolTypes)]
@@ -628,13 +645,13 @@ pub struct MessageFlight {
 }
 
 impl MessageFlight {
-    // Creates a flight of messages from the encoded chunks of a message issued by a secure channel.
-    // fn from_sc_message(&mut self, chunks: &Vec<MessageChunk>) {
-    //     self.messages.clear();
-    //     for msg_chunk in chunks {
-    //         self.messages.push(Message::Chunk(msg_chunk.clone()))
-    //     }
-    // }
+
+    pub fn merge(&mut self, with: Self) {
+        for message in with.messages {
+            self.messages.push(message)
+        }
+    }
+
 }
 
 impl OpaqueProtocolMessageFlight<OpcuaProtocolTypes, Message> for MessageFlight {
@@ -670,11 +687,11 @@ impl Codec for MessageFlight {
         let mut deframer = MessageDeframer::new();
         let mut flight = <MessageFlight as OpaqueProtocolMessageFlight<OpcuaProtocolTypes, Message>>::new();
 
+        /* /!\ Only the first byte contains the connexion id */
+        let connexion_id: u8 = Codec::read(reader).unwrap();
         let _ = deframer.read(&mut reader.rest());
-        while let Some(msg) = deframer.pop_frame() {
-            OpaqueProtocolMessageFlight::push(&mut flight, msg);
-            // continue to read the buffer
-            //let _ = deframer.read(&mut reader.rest());
+        while let Some(message) = deframer.pop_frame() {
+            OpaqueProtocolMessageFlight::push(&mut flight, Message{connexion_id, message});
         }
         Some(flight)
     }

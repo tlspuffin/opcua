@@ -600,7 +600,7 @@ pub fn fn_open_message (
     body: &EncryptedBody,
 ) -> Result<Message, FnError> {
     Ok(Message{
-        connexion: *connexion,
+        connexion_id: *connexion,
         message: UaMessage::Open (header.clone(), security.clone(), body.clone())
     })
 }
@@ -611,7 +611,7 @@ pub fn fn_message (
     body: &MessageBody,
 ) -> Result<Message, FnError> {
     Ok(Message{
-        connexion: *connexion,
+        connexion_id: *connexion,
         message: UaMessage::Chunk (header.clone(), body.clone())
       })
 }
