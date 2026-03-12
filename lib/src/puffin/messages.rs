@@ -534,8 +534,8 @@ impl MessageDeframer {
         if new_bytes > 0 { loop {
             match self.try_deframe_one() {
                 BufferContent::Invalid => {
-                    self.used = 0;  // TODO: try to resynchronize.
-                    return Err(io::Error::other("UA TCP invalid message!"));
+                    self.used = 0;
+                    return Err(io::Error::other("Invalid UA TCP message!"));
                 }
                 BufferContent::Valid => continue,
                 BufferContent::Partial => break,
@@ -689,7 +689,7 @@ impl Codec for MessageFlight {
 
         /* /!\ Only the first byte contains the connexion id */
         let connexion_id: u8 = Codec::read(reader).unwrap();
-        if let Ok(_) = deframer.read(&mut reader.rest()) {
+        if deframer.read(&mut reader.rest()).is_ok() {
             while let Some(message) = deframer.pop_frame() {
                 OpaqueProtocolMessageFlight::push(&mut flight, Message{connexion_id, message});
             }
