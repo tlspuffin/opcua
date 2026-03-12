@@ -155,13 +155,9 @@ impl MessageHeader {
                 ACKNOWLEDGE_MESSAGE => MessageType::Acknowledge,
                 ERROR_MESSAGE => MessageType::Error,
                 REVERSE_HELLO_MESSAGE => MessageType::Reverse,
-                CHUNK_MESSAGE | OPEN_SECURE_CHANNEL_MESSAGE | CLOSE_SECURE_CHANNEL_MESSAGE => {
-                    MessageType::Chunk
-                }
-                _ => {
-                    error!("message type doesn't match anything");
-                    MessageType::Invalid
-                }
+                CHUNK_MESSAGE | OPEN_SECURE_CHANNEL_MESSAGE | CLOSE_SECURE_CHANNEL_MESSAGE
+                  => MessageType::Chunk,
+                _ => MessageType::Invalid
             };
 
             // Check the 4th byte which should be F for messages or F, C or A for chunks. If its
