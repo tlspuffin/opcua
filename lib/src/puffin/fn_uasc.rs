@@ -133,6 +133,15 @@ pub fn fn_service(
     Ok(buffer)
  }
 
+ pub fn fn_service_size(
+    request: &ServiceMessage
+ ) -> Result<u32, FnError> {
+    let mut buffer= Vec::<u8>::new();
+    CodecP::encode(request, &mut buffer);
+    Ok(8 + buffer.len() as u32)
+ }
+
+
 pub fn fn_body(
     token_id: &SymmetricSecurityHeader,
     sequence: &SequenceHeader,
@@ -552,12 +561,12 @@ pub fn fn_client_mac_key(
 pub fn fn_msg_header (
     cipher_suite: &CipherSuite,
     message_header: &MessageChunkHeader,
-    request: &Vec<u8>
+    request_len: &u32
 ) -> Result<MessageChunkHeader, FnError> {
     let security_policy = cipher_suite.security_policy();
     let mac_length: usize = security_policy.symmetric_signature_size();
     let mut header = message_header.clone();
-    header.message_size = (header.byte_len() + 4 + request.len() + mac_length) as u32;
+    header.message_size = (header.byte_len() + 4 + (*request_len) as usize + mac_length) as u32;
     Ok(header)
 }
 

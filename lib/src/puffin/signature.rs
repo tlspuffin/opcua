@@ -180,6 +180,7 @@ define_signature! {
     fn_header
     fn_sequence_header
     fn_service
+    fn_service_size
     fn_body
     fn_open_header
     fn_no_bytes
