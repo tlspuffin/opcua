@@ -13,10 +13,13 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct ReadResponse {
     pub response_header: ResponseHeader,
+    #[extractable_ignore]
     pub results: Option<Vec<DataValue>>,
+    #[extractable_ignore]
     pub diagnostic_infos: Option<Vec<DiagnosticInfo>>,
 }
 
@@ -54,5 +57,16 @@ impl BinaryEncoder<ReadResponse> for ReadResponse {
             results,
             diagnostic_infos,
         })
+    }
+}
+crate::impl_codec_p!(ReadResponse);
+
+impl Default for ReadResponse {
+    fn default() -> Self {
+        ReadResponse {
+            response_header: ResponseHeader::null(),
+            results: None,
+            diagnostic_infos: None,
+        }
     }
 }

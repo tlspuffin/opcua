@@ -13,7 +13,8 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, extractable_macro::Extractable)]
+#[extractable(crate::puffin::types::OpcuaProtocolTypes)]
 pub struct CloseSessionResponse {
     pub response_header: ResponseHeader,
 }
@@ -42,5 +43,15 @@ impl BinaryEncoder<CloseSessionResponse> for CloseSessionResponse {
     fn decode<S: Read>(stream: &mut S, decoding_options: &DecodingOptions) -> EncodingResult<Self> {
         let response_header = ResponseHeader::decode(stream, decoding_options)?;
         Ok(CloseSessionResponse { response_header })
+    }
+}
+
+crate::impl_codec_p!(CloseSessionResponse);
+
+impl Default for CloseSessionResponse {
+    fn default() -> Self {
+        CloseSessionResponse {
+            response_header: ResponseHeader::null()
+        }
     }
 }

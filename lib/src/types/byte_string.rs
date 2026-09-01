@@ -4,15 +4,16 @@
 
 //! Contains the implementation of `ByteString`.
 
+use base64::{engine::general_purpose::STANDARD, Engine};
+use extractable_macro::Extractable;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     convert::TryFrom,
     fmt,
     io::{Read, Write},
 };
 
-use base64::{engine::general_purpose::STANDARD, Engine};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-
+use crate::puffin::types::OpcuaProtocolTypes;
 use crate::types::{
     encoding::{
         process_decode_io_result, process_encode_io_result, write_i32, BinaryEncoder,
@@ -23,7 +24,8 @@ use crate::types::{
 };
 
 /// A sequence of octets.
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+#[derive(Eq, PartialEq, Debug, Clone, Hash, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct ByteString {
     pub value: Option<Vec<u8>>,
 }
@@ -120,13 +122,13 @@ impl BinaryEncoder<ByteString> for ByteString {
         if len == -1 {
             Ok(ByteString::null())
         } else if len < -1 {
-            error!("ByteString buf length is a negative number {}", len);
+            // error!("ByteString buf length is a negative number {}", len);
             Err(StatusCode::BadDecodingError)
         } else if len as usize > decoding_options.max_byte_string_length {
-            error!(
-                "ByteString length {} exceeds decoding limit {}",
-                len, decoding_options.max_string_length
-            );
+            // error!(
+            //     "ByteString length {} exceeds decoding limit {}",
+            //     len, decoding_options.max_string_length
+            // );
             Err(StatusCode::BadDecodingError)
         } else {
             // Create a buffer filled with zeroes and read the byte string over the top
@@ -136,6 +138,8 @@ impl BinaryEncoder<ByteString> for ByteString {
         }
     }
 }
+
+crate::impl_codec_p!(ByteString);
 
 impl<'a, T> From<&'a T> for ByteString
 where

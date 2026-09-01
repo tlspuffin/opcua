@@ -13,7 +13,12 @@ use crate::types::{
 };
 use std::io::{Read, Write};
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+use crate::puffin::types::OpcuaProtocolTypes;
+use extractable_macro::Extractable;
+use puffin::codec::VecCodecWoSize;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 #[serde(rename_all = "PascalCase")]
 pub struct ReadValueId {
     pub node_id: NodeId,
@@ -62,3 +67,6 @@ impl BinaryEncoder<ReadValueId> for ReadValueId {
         })
     }
 }
+
+crate::impl_codec!(ReadValueId);
+impl VecCodecWoSize for ReadValueId {}

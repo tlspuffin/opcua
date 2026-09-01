@@ -25,6 +25,9 @@ use crate::types::{
     string::*,
 };
 
+use crate::puffin::types::OpcuaProtocolTypes;
+use extractable_macro::Extractable;
+
 /// The kind of identifier, numeric, string, guid or byte
 #[derive(Eq, PartialEq, Clone, Debug, Hash)]
 pub enum Identifier {
@@ -125,13 +128,17 @@ impl fmt::Display for NodeIdError {
 impl std::error::Error for NodeIdError {}
 
 /// An identifier for a node in the address space of an OPC UA Server.
-#[derive(PartialEq, Eq, Clone, Debug, Hash)]
+#[derive(PartialEq, Eq, Clone, Debug, Hash, Extractable)]
+#[extractable(OpcuaProtocolTypes)]
 pub struct NodeId {
     /// The index for a namespace
     pub namespace: u16,
     /// The identifier for the node in the address space
+    #[extractable_ignore] // BinaryEncoder is not implemented.
     pub identifier: Identifier,
 }
+
+crate::impl_codec_p!(NodeId);
 
 impl fmt::Display for NodeId {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -367,7 +374,7 @@ impl BinaryEncoder<NodeId> for NodeId {
                 NodeId::new(namespace, value)
             }
             _ => {
-                error!("Unrecognized node id type {}", identifier);
+                //error!("Unrecognized node id type {}", identifier);
                 return Err(StatusCode::BadDecodingError);
             }
         };
