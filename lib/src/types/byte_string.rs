@@ -299,3 +299,6 @@ fn bytestring_substring() {
     assert!(v.substring(4, 10000).is_err());
     assert!(ByteString::null().substring(0, 0).is_err());
 }
+
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(ByteString);

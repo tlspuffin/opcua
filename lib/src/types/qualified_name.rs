@@ -116,3 +116,5 @@ impl QualifiedName {
 }
 
 crate::impl_codec_p!(QualifiedName);
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(QualifiedName);

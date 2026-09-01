@@ -330,3 +330,6 @@ fn string_substring() {
 
 /// An XML element.
 pub type XmlElement = UAString;
+
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(UAString);

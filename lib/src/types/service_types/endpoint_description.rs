@@ -117,3 +117,4 @@ impl Extractable<OpcuaProtocolTypes> for EndpointDescription {
         Ok(())
     }
 }
+crate::dummy_comparable!(EndpointDescription);

@@ -176,3 +176,6 @@ impl RequestHeader {
         RequestHeader::new(&NodeId::null(), &DateTime::now(), 1)
     }
 }
+
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(RequestHeader);

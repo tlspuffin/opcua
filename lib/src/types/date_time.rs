@@ -359,3 +359,6 @@ impl DateTime {
         seconds * TICKS_PER_SECOND + nanos / NANOS_PER_TICK
     }
 }
+
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(DateTime);

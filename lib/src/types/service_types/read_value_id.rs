@@ -70,3 +70,5 @@ impl BinaryEncoder<ReadValueId> for ReadValueId {
 
 crate::impl_codec!(ReadValueId);
 impl VecCodecWoSize for ReadValueId {}
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(ReadValueId);

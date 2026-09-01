@@ -186,3 +186,9 @@ impl BinaryEncoder<SequenceHeader> for SequenceHeader {
     }
 }
 crate::impl_codec_p!(SequenceHeader);
+
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(SecurityHeader);
+crate::dummy_comparable!(SymmetricSecurityHeader);
+crate::dummy_comparable!(AsymmetricSecurityHeader);
+crate::dummy_comparable!(SequenceHeader);

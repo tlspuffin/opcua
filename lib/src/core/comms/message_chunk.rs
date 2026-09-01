@@ -358,3 +358,6 @@ impl Default for MessageChunkHeader {
             secure_channel_id: 0
     }}
 }
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(MessageChunk);
+crate::dummy_comparable!(MessageChunkHeader);

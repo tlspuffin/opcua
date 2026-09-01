@@ -75,3 +75,6 @@ impl Default for ChannelSecurityToken{
         }
     }
 }
+
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(ChannelSecurityToken);

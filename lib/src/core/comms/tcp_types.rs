@@ -461,3 +461,9 @@ impl ReverseHelloMessage {
     //  check server URI and endpoint URL
 
 }
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(MessageHeader);
+crate::dummy_comparable!(HelloMessage);
+crate::dummy_comparable!(AcknowledgeMessage);
+crate::dummy_comparable!(ErrorMessage);
+crate::dummy_comparable!(ReverseHelloMessage);

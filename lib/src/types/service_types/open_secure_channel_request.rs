@@ -91,3 +91,5 @@ impl Default for OpenSecureChannelRequest {
             requested_lifetime: 0,
     }}
 }
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(OpenSecureChannelRequest);

@@ -700,3 +700,21 @@ impl Codec for MessageFlight {
     }
 }
 
+
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(ChunkType);
+crate::dummy_comparable!(UaMessage);
+crate::dummy_comparable!(Message);
+crate::dummy_comparable!(EncryptedBody);
+crate::dummy_comparable!(ServiceMessage);
+crate::dummy_comparable!(DecryptedBody);
+crate::dummy_comparable!(MessageFlight);
+crate::dummy_comparable!(MessageBody);
+
+// Non-recursing dummy PartialEq: satisfies the flight-extraction bound without propagating
+// PartialEq into UaMessage and every message variant. OPC UA does not rely on message equality.
+impl PartialEq for Message {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
+}

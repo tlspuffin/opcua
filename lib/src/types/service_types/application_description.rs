@@ -78,3 +78,6 @@ impl BinaryEncoder<ApplicationDescription> for ApplicationDescription {
     }
 }
 crate::impl_codec_p!(ApplicationDescription);
+
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(ApplicationDescription);

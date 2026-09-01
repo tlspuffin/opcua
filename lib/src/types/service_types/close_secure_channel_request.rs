@@ -54,3 +54,5 @@ impl Default for CloseSecureChannelRequest {
         }
     }
 }
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(CloseSecureChannelRequest);

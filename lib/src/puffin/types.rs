@@ -97,7 +97,7 @@ impl ProtocolDescriptorConfig for ApplicationConfig {
 
 // Protocol Types:
 
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpcuaProtocolTypes;
 
 impl ProtocolTypes for OpcuaProtocolTypes {
@@ -106,6 +106,28 @@ impl ProtocolTypes for OpcuaProtocolTypes {
 
     fn signature() -> &'static Signature<Self> {
         &OPCUA_SIGNATURE
+    }
+
+    // Differential-fuzzing API (introduced by the DDYF work in the puffin base): OPC UA does not
+    // participate in differential fuzzing yet, so these are neutral stubs.
+    fn differential_fuzzing_whitelist() -> Option<Vec<std::any::TypeId>> {
+        None
+    }
+    fn differential_fuzzing_claims_blacklist() -> Option<Vec<std::any::TypeId>> {
+        None
+    }
+    fn differential_fuzzing_terms_to_eval(
+        _agents: &Vec<puffin::agent::AgentDescriptor<Self::PUTConfig>>,
+    ) -> Vec<puffin::algebra::Term<Self>> {
+        vec![]
+    }
+    fn differential_fuzzing_uniformise_put_config(
+        trace: puffin::trace::Trace<Self>,
+    ) -> puffin::trace::Trace<Self> {
+        trace
+    }
+    fn differential_fuzzing_filter_diff(_diff: &puffin::differential::TraceDifference) -> bool {
+        true
     }
 }
 
@@ -121,3 +143,23 @@ atom_extract_knowledge!(OpcuaProtocolTypes, u8);
 atom_extract_knowledge!(OpcuaProtocolTypes, u16);
 atom_extract_knowledge!(OpcuaProtocolTypes, u32);
 atom_extract_knowledge!(OpcuaProtocolTypes, f64);
+
+// dummy_comparable!: implement `comparable::Comparable` on a TOP type WITHOUT recursing into its
+// sub-terms (unlike `#[derive(Comparable)]`, which would force every field to be `Comparable`).
+// The impl describes nothing and always reports `Unchanged` — enough to satisfy the
+// `CompareKnowledge`/`EvaluatedTerm` bounds pulled in by the differential-fuzzing machinery, while
+// OPC UA opts out of actual knowledge comparison.
+#[macro_export]
+macro_rules! dummy_comparable {
+    ($($t:ty),+ $(,)?) => {$(
+        impl comparable::Comparable for $t {
+            type Desc = ();
+            fn describe(&self) -> Self::Desc {}
+            type Change = ();
+            fn comparison(&self, _other: &Self) -> comparable::Changed<Self::Change> {
+                comparable::Changed::Unchanged
+            }
+        }
+    )+};
+}
+

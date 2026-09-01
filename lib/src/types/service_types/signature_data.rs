@@ -53,3 +53,5 @@ impl BinaryEncoder<SignatureData> for SignatureData {
     }
 }
 crate::impl_codec_p!(SignatureData);
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(SignatureData);

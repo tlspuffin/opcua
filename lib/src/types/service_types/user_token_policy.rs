@@ -108,3 +108,4 @@ impl Extractable<OpcuaProtocolTypes> for UserTokenPolicy {
         Ok(())
     }
 }
+crate::dummy_comparable!(UserTokenPolicy);

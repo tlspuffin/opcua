@@ -1600,3 +1600,9 @@ impl BinaryEncoder<ExceptionDeviationFormat> for ExceptionDeviationFormat {
         }
     }
 }
+
+// Non-recursing dummy Comparable (opts OPC UA out of differential knowledge comparison)
+crate::dummy_comparable!(ApplicationType);
+crate::dummy_comparable!(MessageSecurityMode);
+crate::dummy_comparable!(UserTokenType);
+crate::dummy_comparable!(SecurityTokenRequestType);
