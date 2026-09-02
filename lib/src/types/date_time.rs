@@ -30,32 +30,12 @@ pub type DateTimeUtc = chrono::DateTime<Utc>;
 
 /// A date/time value. This is a wrapper around the chrono type with extra functionality
 /// for obtaining ticks in OPC UA measurements, endtimes, epoch etc.
-#[derive(PartialEq, Debug, Clone, Copy, Extractable)]
+// serde DERIVED (chrono has the `serde` feature) for postcard round-trip safety — see byte_string.rs.
+#[derive(PartialEq, Debug, Clone, Copy, Extractable, Serialize, Deserialize)]
 #[extractable(OpcuaProtocolTypes)]
 pub struct DateTime {
     #[extractable_ignore]
     date_time: DateTimeUtc,
-}
-
-impl Serialize for DateTime {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(&self.to_rfc3339())
-    }
-}
-
-impl<'de> Deserialize<'de> for DateTime {
-    fn deserialize<D>(deserializer: D) -> Result<DateTime, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let v = String::deserialize(deserializer)?;
-        let dt = DateTime::parse_from_rfc3339(&v)
-            .map_err(|_| D::Error::custom("Cannot parse date time"))?;
-        Ok(dt)
-    }
 }
 
 /// DateTime encoded as 64-bit signed int
