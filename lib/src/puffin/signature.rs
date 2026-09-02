@@ -186,19 +186,19 @@ define_signature! {
     fn_no_bytes
     fn_data_to_sign
     fn_data_to_encrypt
-    fn_sign
+    fn_sign [opaque]
     fn_asym_header
-    fn_asym_encrypt
-    fn_asym_decrypt
+    fn_asym_encrypt [opaque]
+    fn_asym_decrypt [opaque]
     fn_decrypted_body
     fn_open_message
     fn_channel_token
-    fn_get_channel_token
-    fn_get_server_nonce
-    fn_client_mac_key
+    fn_get_channel_token [get]
+    fn_get_server_nonce [get]
+    fn_client_mac_key [opaque]
     fn_msg_header
     fn_data_to_mac
-    fn_mac
+    fn_mac [opaque]
     fn_message
 
     fn_request_header
