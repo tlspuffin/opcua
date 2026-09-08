@@ -4,7 +4,7 @@ use puffin::algebra::error::FnError;
 
 use crate::crypto::{SecurityPolicy, X509, legacy_password_encrypt};
 use crate::puffin::messages::ServiceMessage;
-use crate::puffin::signature::fn_impl::{fn_basic256sha256, fn_oscar_cert, fn_oscar_endpoint};
+use crate::puffin::signature::fn_impl::{fn_basic256sha256, fn_oscar_cert, fn_oscar_endpoint, Certificate};
 use crate::puffin::signature::{CipherSuite};
 use crate::types::{ActivateSessionRequest, AnonymousIdentityToken, ApplicationDescription, ApplicationType, AttributeId, BinaryEncoder, ByteString, CloseSessionRequest, CreateSessionRequest, EndpointDescription, ExtensionObject, GetEndpointsResponse, Identifier, LocalizedText, MessageSecurityMode, NodeId, ObjectId, QualifiedName, ReadRequest, ReadValueId, RequestHeader, ResponseHeader, SignatureData, TimestampsToReturn, UAString, UserNameIdentityToken, UserTokenPolicy, UserTokenType, VariableId, X509IdentityToken};
 
@@ -12,7 +12,7 @@ pub fn fn_create_request (
     request_header: &RequestHeader,
     endpoint_url: &UAString,
     client_nonce: &ByteString,
-    client_certificate: &ByteString
+    client_certificate: &Certificate
 ) -> Result<ServiceMessage, FnError> {
     let request = CreateSessionRequest {
         request_header: request_header.clone(),
@@ -29,7 +29,7 @@ pub fn fn_create_request (
         endpoint_url: endpoint_url.clone(),
         session_name: UAString::null(),
         client_nonce: client_nonce.clone(),
-        client_certificate: client_certificate.clone(),
+        client_certificate: client_certificate.0.clone(),
         requested_session_timeout: 1200000.0,
         max_response_message_size: 0,
     };
@@ -37,11 +37,11 @@ pub fn fn_create_request (
 }
 
 pub fn fn_signature_data (
-    certificate: &ByteString,
+    certificate: &Certificate,
     nonce: &ByteString,
 ) -> Result<Vec<u8>, FnError> {
     let mut buffer= Vec::<u8>::with_capacity(certificate.byte_len() + nonce.byte_len());
-    if let Some(cert) = certificate.clone().value {
+    if let Some(cert) = certificate.0.clone().value {
         buffer.extend(cert);
     };
     if let Some(n) = nonce.clone().value {
@@ -120,7 +120,7 @@ pub fn fn_anonymous(
 //     cipher_suite: &CipherSuite,
 //     user_name: &UAString,
 //     password: &UAString,
-//     server_cert: &ByteString,
+//     server_cert: &Certificate,
 //     server_nonce: &ByteString,
 // ) -> Result<ExtensionObject, FnError> {
 
@@ -171,7 +171,7 @@ pub fn fn_legacy_user_pwd(
     cipher_suite: &CipherSuite,
     user_name: &UAString,
     password: &UAString,
-    server_cert: &ByteString,
+    server_cert: &Certificate,
     server_nonce: &ByteString,
 ) -> Result<ExtensionObject, FnError> {
 
@@ -219,11 +219,11 @@ pub fn fn_legacy_user_pwd(
 
 pub fn fn_user_cert(
     policy_id: &UAString,
-    user_cert: &ByteString,
+    user_cert: &Certificate,
 ) -> Result<ExtensionObject, FnError> {
     let identity_token = X509IdentityToken {
         policy_id: policy_id.clone(),
-        certificate_data: user_cert.clone(),
+        certificate_data: user_cert.0.clone(),
     };
     let identity_token = ExtensionObject::from_encodable(
         ObjectId::X509IdentityToken_Encoding_DefaultBinary,
@@ -280,7 +280,7 @@ pub fn fn_endpoints(
                     gateway_server_uri: UAString::null(),
                     discovery_profile_uri: UAString::null(),
                     discovery_urls: Some(vec![ fn_oscar_endpoint().unwrap() ]) },
-                server_certificate: fn_oscar_cert().unwrap(),
+                server_certificate: fn_oscar_cert().unwrap().0,
                 security_mode: MessageSecurityMode::Sign,
                 security_policy_uri: fn_basic256sha256().unwrap().security_policy().to_uri().into(),
                 user_identity_tokens: Some(vec![

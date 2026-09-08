@@ -136,12 +136,14 @@ define_signature! {
 
     fn_null_cert
     fn_alice_cert
-    fn_bob_cert
+    fn_bob_cert            // server's public cert: the client legitimately NEEDS it to open a channel
+                           // (encrypt-to / thumbprint), and may fuzz sending a wrong one -> keep gen-able.
     fn_mallory_cert
     fn_oscar_cert
 
     fn_alice_sk
-    fn_bob_sk
+    fn_bob_sk [no_gen]     // server's PRIVATE key: the attacker (always the client) must NEVER hold or
+                           // forge it. Never used in any trace; no_gen bars the fuzzer from emitting it.
     fn_mallory_sk
     fn_oscar_sk
 

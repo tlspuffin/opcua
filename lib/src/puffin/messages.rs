@@ -710,6 +710,8 @@ crate::dummy_comparable!(ServiceMessage);
 crate::dummy_comparable!(DecryptedBody);
 crate::dummy_comparable!(MessageFlight);
 crate::dummy_comparable!(MessageBody);
+crate::dummy_comparable!(crate::puffin::signature::fn_impl::SecretKey);
+crate::dummy_comparable!(crate::puffin::signature::fn_impl::Certificate);
 
 // Non-recursing dummy PartialEq: satisfies the flight-extraction bound without propagating
 // PartialEq into UaMessage and every message variant. OPC UA does not rely on message equality.

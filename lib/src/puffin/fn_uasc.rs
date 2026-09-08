@@ -37,6 +37,59 @@ pub fn fn_header (
 // checker errors).
 // Hence I prefer to duplicate this enum here:
 
+/// A private (asymmetric) signing/decryption key. Its own DY type so the fuzzer treats keys as a
+/// distinct kind -- NOT interchangeable with the many generic `Vec<u8>` byte-buffers in a trace
+/// (fn_mac / fn_service / fn_sign / ... outputs). Without this, ReplaceReuse would overwrite a key
+/// slot with an arbitrary buffer (type-valid, semantically garbage) and ReplaceMatch/selection
+/// would drown the 2 key leaves among dozens of Vec<u8> buffer nodes. Keys only swap with keys now.
+#[derive(Clone, Debug, Deserialize, Eq, Extractable, Hash, PartialEq, Serialize)]
+#[extractable(OpcuaProtocolTypes)]
+pub struct SecretKey(pub Vec<u8>);
+
+impl Default for SecretKey {
+    fn default() -> Self { SecretKey(Vec::new()) }
+}
+
+impl CodecP for SecretKey {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        bytes.extend_from_slice(&self.0);
+    }
+    fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
+        self.0.read(rd)?;
+        Ok(())
+    }
+}
+
+/// An X509 certificate. Its own DY type (wrapping ByteString) so the fuzzer treats certs as a
+/// distinct kind -- NOT interchangeable with nonces / query ByteStrings / other byte blobs. Without
+/// this, ReplaceMatch/ReplaceReuse would swap a cert with a nonce or an arbitrary ByteString
+/// (type-valid, semantically garbage). Certs only swap with certs now. Derefs to ByteString so the
+/// existing crypto bodies (.as_ref(), .is_null_or_empty(), .byte_len()) keep working.
+#[derive(Clone, Debug, Deserialize, Eq, Extractable, Hash, PartialEq, Serialize)]
+#[extractable(OpcuaProtocolTypes)]
+pub struct Certificate(pub ByteString);
+
+impl Default for Certificate {
+    fn default() -> Self { Certificate(ByteString::null()) }
+}
+
+impl std::ops::Deref for Certificate {
+    type Target = ByteString;
+    fn deref(&self) -> &ByteString { &self.0 }
+}
+
+impl CodecP for Certificate {
+    fn encode(&self, bytes: &mut Vec<u8>) {
+        bytes.extend_from_slice(self.0.as_ref());
+    }
+    fn read(&mut self, rd: &mut Reader) -> Result<(), Error> {
+        let mut v: Vec<u8> = Vec::new();
+        v.read(rd)?;
+        self.0 = ByteString { value: Some(v) };
+        Ok(())
+    }
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Extractable, Hash, PartialEq, Serialize)]
 #[extractable(OpcuaProtocolTypes)]
 pub enum CipherSuite {
@@ -178,8 +231,8 @@ fn calculate_plain_text_block_size (
 pub fn fn_open_header(
     chunk_header: &MessageChunkHeader,
     cipher_suite: &CipherSuite,
-    sender_certificate: &ByteString,
-    receiver_certificate: &ByteString,
+    sender_certificate: &Certificate,
+    receiver_certificate: &Certificate,
     data: &Vec<u8>
 ) -> Result<MessageChunkHeader, FnError> {
 
@@ -223,7 +276,7 @@ pub fn fn_open_header(
 
     let security_header = AsymmetricSecurityHeader {
         security_policy_uri: UAString::from(security_policy.to_uri()),
-        sender_certificate: sender_certificate.clone(),
+        sender_certificate: sender_certificate.0.clone(),
         receiver_certificate_thumbprint
     };
     let mut header = chunk_header.clone();
@@ -235,8 +288,8 @@ pub fn fn_open_header(
 pub fn fn_data_to_sign (
     header: &MessageChunkHeader,
     cipher_suite: &CipherSuite,
-    sender_certificate: &ByteString,
-    receiver_certificate: &ByteString,
+    sender_certificate: &Certificate,
+    receiver_certificate: &Certificate,
     data: &Vec<u8>,
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
@@ -269,7 +322,7 @@ pub fn fn_data_to_sign (
     // collect data to sign in a buffer:
     let security_header = AsymmetricSecurityHeader {
         security_policy_uri: UAString::from(security_policy.to_uri()),
-        sender_certificate: sender_certificate.clone(),
+        sender_certificate: sender_certificate.0.clone(),
         receiver_certificate_thumbprint
     };
     let mut buffer= Vec::<u8>::new();
@@ -293,8 +346,8 @@ pub fn fn_data_to_sign (
 pub fn fn_sign(
     data: &Vec<u8>,
     cipher_suite: &CipherSuite,
-    sender_certificate: &ByteString,
-    private_key: &Vec<u8>
+    sender_certificate: &Certificate,
+    private_key: &SecretKey
 ) -> Result<Vec<u8>, FnError> {
     let security_policy = cipher_suite.security_policy();
     if security_policy == SecurityPolicy::None {
@@ -305,7 +358,7 @@ pub fn fn_sign(
            .map_err( |_| {FnError::Crypto("Error reading certificate X509 with DER encoding".to_string())})?;
         x509.public_key().unwrap().size()
     };
-    let signing_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
+    let signing_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(&private_key.0)
         .map(|value|{PrivateKey {value}})
         .map_err( |_| {FnError::Crypto("fn_sign: error reading private key (PKCS #8 with DER)".to_string())})?;
     let mut signature = vec![0u8; signature_size];
@@ -317,7 +370,7 @@ pub fn fn_sign(
 
 pub fn fn_data_to_encrypt (
     cipher_suite: &CipherSuite,
-    receiver_certificate: &ByteString,
+    receiver_certificate: &Certificate,
     request: &Vec<u8>,
     signature: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
@@ -359,13 +412,13 @@ pub fn fn_data_to_encrypt (
 
 pub fn fn_asym_header (
     cipher_suite: &CipherSuite,
-    sender_certificate: &ByteString,
-    receiver_certificate: &ByteString,
+    sender_certificate: &Certificate,
+    receiver_certificate: &Certificate,
 ) -> Result<AsymmetricSecurityHeader, FnError> {
 
     let security_policy = cipher_suite.security_policy();
     let receiver_certificate_thumbprint =
-        if *sender_certificate == ByteString::null() {
+        if sender_certificate.0 == ByteString::null() {
             ByteString::null()
         } else {
             match X509::from_der(receiver_certificate.as_ref()) {
@@ -374,7 +427,7 @@ pub fn fn_asym_header (
         }};
     Ok(AsymmetricSecurityHeader {
         security_policy_uri: UAString::from(security_policy.to_uri()),
-        sender_certificate: sender_certificate.clone(),
+        sender_certificate: sender_certificate.0.clone(),
         receiver_certificate_thumbprint
     })
 }
@@ -382,7 +435,7 @@ pub fn fn_asym_header (
 
 pub fn fn_asym_encrypt (
     cipher_suite: &CipherSuite,
-    receiver_certificate: &ByteString,
+    receiver_certificate: &Certificate,
     data: &Vec<u8>,
 ) -> Result<EncryptedBody, FnError> {
 
@@ -434,7 +487,7 @@ pub fn fn_asym_encrypt (
 pub fn fn_asym_decrypt(
     cipher_suite: &CipherSuite,
     body: &EncryptedBody,
-    private_key: &Vec<u8>
+    private_key: &SecretKey
 ) -> Result<Vec<u8>, FnError> {
 
     // Read asymmetric security header:
@@ -447,7 +500,7 @@ pub fn fn_asym_decrypt(
         _ => {
             // decrypt payload:
             let encrypted_size=  body.cipher_text.len();
-            let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
+            let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(&private_key.0)
                 .map(|value|{PrivateKey {value}})
                 .map_err( |_| {FnError::Crypto("fn_asym_decrypt: error reading private key (PKCS #8 with DER)".to_string())})?;
             let cipher_text_block_size = decryption_key.cipher_text_block_size();
@@ -468,7 +521,7 @@ pub fn fn_asym_decrypt(
 
 pub fn fn_decrypted_body(
     body: &Vec<u8>,
-    private_key: &Vec<u8>
+    private_key: &SecretKey
 ) -> Result<DecryptedBody, FnError> {
 
     let mut rd = Reader::init(body);
@@ -479,9 +532,9 @@ pub fn fn_decrypted_body(
         .map_err(|e| FnError::Codec(format!("fn_decrypted_body cannot read message: {e}")))?;
 
     // suppressed padding:
-    if private_key.len() > 0 {
+    if private_key.0.len() > 0 {
         // get decryption key:
-        let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(private_key)
+        let decryption_key: PKey<Private> = openssl::pkey::PKey::private_key_from_pkcs8(&private_key.0)
         .map(|value|{PrivateKey {value}})
         .map_err( |_| -> FnError {FnError::Crypto("fn_decrypted_body: error reading private key (PKCS #8 with DER)".to_string())})?;
         let mut padding_byte: u8 = 0;
@@ -559,24 +612,35 @@ pub fn fn_client_mac_key(
 }
 
 pub fn fn_msg_header (
-    cipher_suite: &CipherSuite,
+    _cipher_suite: &CipherSuite,
     message_header: &MessageChunkHeader,
-    request_len: &u32
 ) -> Result<MessageChunkHeader, FnError> {
-    let security_policy = cipher_suite.security_policy();
-    let mac_length: usize = security_policy.symmetric_signature_size();
+    // The chunk `message_size` is no longer supplied as an explicit `fn_service_size(<payload>)`
+    // term (which forced duplicating the whole service just to size the header). It is now computed
+    // downstream from the payload we already carry -- in `fn_message` (outer, sent header) and in
+    // `fn_data_to_mac` (inner header the MAC signs). Both derive the identical value, so the sent
+    // bytes are unchanged. Deliberately-wrong header sizes are a bit-level concern (`--with-bit`).
     let mut header = message_header.clone();
-    header.message_size = (header.byte_len() + 4 + (*request_len) as usize + mac_length) as u32;
+    header.message_size = 0; // placeholder, overwritten once the payload/MAC length are known
     Ok(header)
 }
 
 pub fn fn_data_to_mac(
+    cipher_suite: &CipherSuite,
     chunk_header: &MessageChunkHeader,
     security_header: &SymmetricSecurityHeader,
     request: &Vec<u8>
 ) -> Result<Vec<u8>, FnError> {
+    // Patch the chunk header's message_size to match the payload before signing: the MAC must cover
+    // the exact header bytes that will be sent. `request` = fn_service(seq, service), whose length
+    // already equals fn_service_size(service) (the 8-byte sequence header matches the `8 +` there),
+    // so this is identical to the size fn_message computes for the outer header.
+    let security_policy = cipher_suite.security_policy();
+    let mac_length: usize = security_policy.symmetric_signature_size();
+    let mut header = chunk_header.clone();
+    header.message_size = (header.byte_len() + 4 + request.len() + mac_length) as u32;
     let mut buffer= Vec::<u8>::new();
-    CodecP::encode(chunk_header, &mut buffer);
+    CodecP::encode(&header, &mut buffer);
     CodecP::encode(security_header, &mut buffer);
     buffer.extend_from_slice(request);
     Ok(buffer)
@@ -619,9 +683,17 @@ pub fn fn_message (
     header: &MessageChunkHeader,
     body: &MessageBody,
 ) -> Result<Message, FnError> {
+    // Compute the chunk message_size from the body we already carry (service + MAC), rather than
+    // taking a precomputed fn_service_size(<payload>) term in the header. service_len mirrors
+    // fn_service_size (8-byte prefix + encoded service); mac length comes from the computed MAC.
+    let mut buf = Vec::<u8>::new();
+    CodecP::encode(&body.request, &mut buf);
+    let service_len = 8 + buf.len();
+    let mut header = header.clone();
+    header.message_size = (header.byte_len() + 4 + service_len + body.mac.len()) as u32;
     Ok(Message{
         connexion_id: *connexion,
-        message: UaMessage::Chunk (header.clone(), body.clone())
+        message: UaMessage::Chunk (header, body.clone())
       })
 }
 

@@ -3,7 +3,7 @@
 use puffin::algebra::error::FnError;
 
 use crate::puffin::messages::ChunkType;
-use crate::puffin::signature::fn_impl::CipherSuite;
+use crate::puffin::signature::fn_impl::{CipherSuite, SecretKey, Certificate};
 use crate::puffin::static_certs::{
     ALICE_PRIVATE_KEY, ALICE_CERTIFICATE, BOB_PRIVATE_KEY, BOB_CERTIFICATE,
     MALLORY_PRIVATE_KEY, MALLORY_CERTIFICATE, OSCAR_PRIVATE_KEY, OSCAR_CERTIFICATE};
@@ -103,34 +103,34 @@ pub fn fn_mode_sign() -> Result<MessageSecurityMode, FnError> {
 }
 
 // Certificates:
-pub fn fn_alice_cert() -> Result<ByteString, FnError> {
-    Ok(ByteString{value: Some(ALICE_CERTIFICATE.1.to_vec())})
+pub fn fn_alice_cert() -> Result<Certificate, FnError> {
+    Ok(Certificate(ByteString{value: Some(ALICE_CERTIFICATE.1.to_vec())}))
 }
-pub fn fn_bob_cert() -> Result<ByteString, FnError>  {
-    Ok(ByteString{value: Some(BOB_CERTIFICATE.1.to_vec())})
+pub fn fn_bob_cert() -> Result<Certificate, FnError>  {
+    Ok(Certificate(ByteString{value: Some(BOB_CERTIFICATE.1.to_vec())}))
 }
-pub fn fn_mallory_cert() -> Result<ByteString, FnError> {
-    Ok(ByteString{value: Some(MALLORY_CERTIFICATE.1.to_vec())})
+pub fn fn_mallory_cert() -> Result<Certificate, FnError> {
+    Ok(Certificate(ByteString{value: Some(MALLORY_CERTIFICATE.1.to_vec())}))
 }
-pub fn fn_oscar_cert() -> Result<ByteString, FnError> {
-    Ok(ByteString{value: Some(OSCAR_CERTIFICATE.1.to_vec())})
+pub fn fn_oscar_cert() -> Result<Certificate, FnError> {
+    Ok(Certificate(ByteString{value: Some(OSCAR_CERTIFICATE.1.to_vec())}))
 }
-pub fn fn_null_cert() -> Result<ByteString, FnError> {
-    Ok(ByteString::null())
+pub fn fn_null_cert() -> Result<Certificate, FnError> {
+    Ok(Certificate(ByteString::null()))
 }
 
 // Private keys:
-pub fn fn_alice_sk() -> Result<Vec<u8>, FnError> {
-    Ok(ALICE_PRIVATE_KEY.1.to_vec())
+pub fn fn_alice_sk() -> Result<SecretKey, FnError> {
+    Ok(SecretKey(ALICE_PRIVATE_KEY.1.to_vec()))
 }
-pub fn fn_bob_sk() -> Result<Vec<u8>, FnError> {
-    Ok(BOB_PRIVATE_KEY.1.to_vec())
+pub fn fn_bob_sk() -> Result<SecretKey, FnError> {
+    Ok(SecretKey(BOB_PRIVATE_KEY.1.to_vec()))
 }
-pub fn fn_mallory_sk() -> Result<Vec<u8>, FnError> {
-    Ok(MALLORY_PRIVATE_KEY.1.to_vec())
+pub fn fn_mallory_sk() -> Result<SecretKey, FnError> {
+    Ok(SecretKey(MALLORY_PRIVATE_KEY.1.to_vec()))
 }
-pub fn fn_oscar_sk() -> Result<Vec<u8>, FnError> {
-    Ok(OSCAR_PRIVATE_KEY.1.to_vec())
+pub fn fn_oscar_sk() -> Result<SecretKey, FnError> {
+    Ok(SecretKey(OSCAR_PRIVATE_KEY.1.to_vec()))
 }
 
 // Security Policies:
